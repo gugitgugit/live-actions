@@ -634,6 +634,27 @@ sequenceDiagram
 
 `progress.ts`를 Chrome API에서 분리한 것은 테스트를 위한 설계 결정입니다. 같은 이유로 판단 로직을 background에서 `lib/`로 더 옮길수록 테스트 범위가 넓어집니다(→ 향후 과제).
 
+### CI
+
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)이 `main` push와 모든 PR에서 실행됩니다.
+
+| 단계 | 명령 | 목적 |
+|---|---|---|
+| Typecheck | `npm run typecheck` | 타입 오류 차단 |
+| Test | `npm test` | 위 단위 테스트 |
+| Build | `npx vite build` | 번들·manifest 생성이 깨지지 않았는지 확인 |
+| Upload | `dist/`를 artifact로 14일 보관 | PR마다 설치해 볼 수 있는 빌드 제공 |
+
+| 선택 | 결정 | 근거 |
+|---|---|---|
+| job 구성 | job 하나에 단계를 나열 | 전체가 1분 안팎이라 병렬로 나눠도 `npm ci`가 job마다 반복되어 이득이 없음 |
+| Node 버전 | 24 (현재 LTS) | 로컬 개발은 Node 26이지만 26은 아직 LTS가 아님. 배포물은 브라우저에서 돌기 때문에 Node 버전은 빌드에만 영향을 주므로 안정적인 LTS로 고정 |
+| Build 명령 | `npm run build` 대신 `npx vite build` | `npm run build`는 `tsc`를 다시 실행함. 바로 앞 단계에서 이미 타입 검사를 했으므로 중복 제거 |
+| 권한 | `contents: read` | 저장소를 읽기만 하므로 최소 권한(D10과 같은 원칙) |
+| 동시 실행 | PR에서만 이전 실행 취소 | PR은 최신 커밋 결과만 의미가 있음. `main`은 커밋마다 결과를 남김 |
+
+이 워크플로는 Actions Pulse로 **자기 자신의 run을 지켜보는 실사용 테스트 대상**이기도 합니다. GitHub App을 등록하면 이 레포의 run으로 폴링·진행률·알림을 검증합니다(→ 10장 첫 항목).
+
 ---
 
 ## 9. 알려진 한계
@@ -679,3 +700,4 @@ sequenceDiagram
 | 날짜 | 변경 |
 |---|---|
 | 2026-10-05 | 최초 작성. v0.1.0 MVP 기준 D1~D13 기록 |
+| 2026-10-05 | 8장에 CI 구성과 선택 근거 추가 |
