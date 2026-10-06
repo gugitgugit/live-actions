@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { APP_SLUG, AuthError, isAppConfigured, pollForToken, requestDeviceCode, type DeviceCode } from '../lib/auth'
+import { errorText, type ErrorInfo } from '../lib/errors'
 import { GitHubClient, GitHubError } from '../lib/github'
+import { t, tAround, type MessageKey } from '../lib/i18n'
 import { getTokenFromBackground } from '../lib/messages'
 import { setItem, updateItem } from '../lib/storage'
 import type { ApiRepo, AuthState, NotifyMode, Settings, WatchedRepo } from '../lib/types'
@@ -11,6 +13,10 @@ export function Options() {
   const settings = useStorage('settings')
   const meta = useStorage('meta')
 
+  useEffect(() => {
+    document.title = t('settingsPageTitle')
+  }, [])
+
   if (auth === undefined || settings === undefined || meta === undefined) return null
 
   return (
@@ -18,8 +24,8 @@ export function Options() {
       <header className="page-header">
         <img src="/icons/icon-128.png" width={32} height={32} alt="" />
         <div>
-          <h1>Actions Pulse</h1>
-          <p className="muted">Live progress for your GitHub Actions workflows.</p>
+          <h1>{t('extName')}</h1>
+          <p className="muted">{t('tagline')}</p>
         </div>
       </header>
 
@@ -27,10 +33,7 @@ export function Options() {
       {auth && <Repositories auth={auth} settings={settings} repoErrors={meta.repoErrors} />}
       {auth && <Preferences settings={settings} />}
 
-      <footer className="page-footer muted">
-        Your token is stored only in this browser and is sent only to GitHub. Actions Pulse has no server and collects
-        no data.
-      </footer>
+      <footer className="page-footer muted">{t('privacyFooter')}</footer>
     </div>
   )
 }
@@ -43,19 +46,22 @@ async function saveAuth(auth: AuthState) {
   await setItem('auth', { ...auth, login: viewer.login })
 }
 
-function Account({ auth, lastError }: { auth: AuthState | null; lastError: string | null }) {
+function Account({ auth, lastError }: { auth: AuthState | null; lastError: ErrorInfo | string | null }) {
   if (auth) {
+    const [before, after] = tAround('signedInAs')
     return (
       <section className="card">
-        <h2>Account</h2>
+        <h2>{t('account')}</h2>
         <div className="row">
           <img className="avatar" src={`https://github.com/${auth.login}.png?size=64`} width={32} height={32} alt="" />
           <div className="grow">
             <div>
-              Signed in as <strong>@{auth.login}</strong>
+              {before}
+              <strong>@{auth.login}</strong>
+              {after}
             </div>
             <div className="muted small">
-              {auth.kind === 'app' ? 'GitHub App · read-only access to Actions' : 'Personal access token'}
+              {auth.kind === 'app' ? t('authAppKind') : t('authPatKind')}
             </div>
           </div>
           <button
@@ -64,7 +70,7 @@ function Account({ auth, lastError }: { auth: AuthState | null; lastError: strin
               await Promise.all([setItem('auth', null), setItem('runs', {}), setItem('httpCache', {})])
             }}
           >
-            Sign out
+            {t('signOut')}
           </button>
         </div>
       </section>
@@ -73,14 +79,15 @@ function Account({ auth, lastError }: { auth: AuthState | null; lastError: strin
 
   return (
     <section className="card">
-      <h2>Account</h2>
-      {lastError && <p className="error">{lastError}</p>}
+      <h2>{t('account')}</h2>
+      {lastError && <p className="error">{errorText(lastError)}</p>}
       {isAppConfigured ? (
         <DeviceFlow />
       ) : (
         <p className="notice">
-          This build has no GitHub App client ID (<code>VITE_GITHUB_CLIENT_ID</code>), so only personal access tokens are
-          available.
+          {tAround('noClientId')[0]}
+          <code>VITE_GITHUB_CLIENT_ID</code>
+          {tAround('noClientId')[1]}
         </p>
       )}
       <TokenForm defaultOpen={!isAppConfigured} />
@@ -130,20 +137,20 @@ function DeviceFlow() {
   if (code) {
     return (
       <div className="device">
-        <p>Enter this code on GitHub to authorize Actions Pulse:</p>
+        <p>{t('deviceEnterCode')}</p>
         <div className="device-code mono" aria-live="polite">
           {code.userCode}
         </div>
         <div className="row center">
           <button className="btn btn-primary" onClick={() => copyAndOpen(code)}>
-            {copied ? 'Copied — open GitHub again' : 'Copy code & open GitHub'}
+            {copied ? t('deviceCopied') : t('deviceCopyOpen')}
           </button>
           <button className="btn" onClick={cancel}>
-            Cancel
+            {t('cancel')}
           </button>
         </div>
         <p className="muted small waiting">
-          <span className="dot" /> Waiting for authorization… Keep this tab open.
+          <span className="dot" /> {t('deviceWaiting')}
         </p>
       </div>
     )
@@ -151,12 +158,10 @@ function DeviceFlow() {
 
   return (
     <div>
-      <p className="muted">
-        Sign in with the Actions Pulse GitHub App. It only asks for read access to Actions and repository metadata.
-      </p>
+      <p className="muted">{t('deviceIntro')}</p>
       {error && <p className="error">{error}</p>}
       <button className="btn btn-primary" onClick={start} disabled={busy}>
-        <GitHubMark /> Sign in with GitHub
+        <GitHubMark /> {t('signInWithGitHub')}
       </button>
     </div>
   )
@@ -175,7 +180,7 @@ function TokenForm({ defaultOpen }: { defaultOpen: boolean }) {
       await saveAuth({ kind: 'pat', accessToken: token.trim() })
       setToken('')
     } catch (err) {
-      setError(err instanceof GitHubError && err.status === 401 ? 'GitHub rejected this token.' : describeAuthError(err))
+      setError(err instanceof GitHubError && err.status === 401 ? t('tokenRejected') : describeAuthError(err))
     } finally {
       setBusy(false)
     }
@@ -183,14 +188,13 @@ function TokenForm({ defaultOpen }: { defaultOpen: boolean }) {
 
   return (
     <details className="pat" open={defaultOpen}>
-      <summary>Use a personal access token instead</summary>
+      <summary>{t('patSummary')}</summary>
       <p className="muted small">
-        Create a{' '}
+        {tAround('patHelp')[0]}
         <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">
-          fine-grained token
-        </a>{' '}
-        with <strong>Actions: Read-only</strong> and <strong>Metadata: Read-only</strong> for the repositories you want to
-        watch.
+          {t('patHelpLink')}
+        </a>
+        {tAround('patHelp')[1]}
       </p>
       <form className="row" onSubmit={submit}>
         <input
@@ -201,10 +205,10 @@ function TokenForm({ defaultOpen }: { defaultOpen: boolean }) {
           onChange={(e) => setToken(e.target.value)}
           autoComplete="off"
           spellCheck={false}
-          aria-label="Personal access token"
+          aria-label={t('authPatKind')}
         />
         <button className="btn" disabled={busy || token.trim().length === 0}>
-          Save token
+          {t('saveToken')}
         </button>
       </form>
       {error && <p className="error">{error}</p>}
@@ -221,7 +225,7 @@ function Repositories({
 }: {
   auth: AuthState
   settings: Settings
-  repoErrors: Record<string, string>
+  repoErrors: Record<string, ErrorInfo | string>
 }) {
   const client = useMemo(() => new GitHubClient({ getToken: getTokenFromBackground }), [])
   const [available, setAvailable] = useState<ApiRepo[] | null>(null)
@@ -271,7 +275,7 @@ function Repositories({
       .replace(/^https?:\/\/github\.com\//, '')
       .replace(/\/$/, '')
     if (!/^[\w.-]+\/[\w.-]+$/.test(name)) {
-      setManualError('Use the owner/name format, e.g. vercel/next.js')
+      setManualError(t('ownerNameFormat'))
       return
     }
     try {
@@ -282,8 +286,8 @@ function Repositories({
       setManualError(
         err instanceof GitHubError && err.status === 404
           ? auth.kind === 'app'
-            ? 'Not found. Is the app installed on this repository?'
-            : 'Not found, or your token has no access to it.'
+            ? t('notFoundApp')
+            : t('notFoundPat')
           : err instanceof Error
             ? err.message
             : String(err),
@@ -294,38 +298,37 @@ function Repositories({
   return (
     <section className="card">
       <div className="row">
-        <h2 className="grow">Repositories</h2>
-        <span className="muted small">{settings.repos.length} watched</span>
+        <h2 className="grow">{t('reposTitle')}</h2>
+        <span className="muted small">{t('reposWatched', settings.repos.length)}</span>
       </div>
 
       {auth.kind === 'app' && APP_SLUG && (
         <p className="muted small">
-          Missing a repository?{' '}
+          {t('reposMissing')}{' '}
           <a href={`https://github.com/apps/${APP_SLUG}/installations/new`} target="_blank" rel="noreferrer">
-            Install the app on more repositories
+            {t('installMoreRepos')}
           </a>
-          , then{' '}
+          {' · '}
           <button className="link" onClick={() => setReload((n) => n + 1)}>
-            reload the list
+            {t('reloadList')}
           </button>
-          .
         </p>
       )}
 
       <input
         type="search"
         className="full"
-        placeholder="Filter repositories"
+        placeholder={t('filterRepos')}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        aria-label="Filter repositories"
+        aria-label={t('filterRepos')}
       />
 
-      {loadError && <p className="error">Could not load repositories: {loadError}</p>}
+      {loadError && <p className="error">{t('reposLoadError', loadError)}</p>}
       {available === null && !loadError ? (
-        <p className="muted">Loading repositories…</p>
+        <p className="muted">{t('reposLoading')}</p>
       ) : rows.length === 0 ? (
-        <p className="muted">{query ? 'No matching repositories.' : 'No repositories found.'}</p>
+        <p className="muted">{query ? t('reposNoMatch') : t('reposNone')}</p>
       ) : (
         <ul className="repo-list">
           {rows.map((repo) => (
@@ -333,10 +336,10 @@ function Repositories({
               <label>
                 <input type="checkbox" checked={watched.has(repo.fullName)} onChange={() => toggle(repo)} />
                 <span className="grow repo-name">{repo.fullName}</span>
-                {repo.private && <span className="tag">Private</span>}
+                {repo.private && <span className="tag">{t('private')}</span>}
               </label>
               {watched.has(repo.fullName) && repoErrors[repo.fullName] && (
-                <div className="error small repo-error">{repoErrors[repo.fullName]}</div>
+                <div className="error small repo-error">{errorText(repoErrors[repo.fullName])}</div>
               )}
             </li>
           ))}
@@ -347,13 +350,13 @@ function Repositories({
         <input
           type="text"
           className="grow"
-          placeholder="Add by name: owner/repo"
+          placeholder={t('addByNamePlaceholder')}
           value={manual}
           onChange={(e) => setManual(e.target.value)}
-          aria-label="Add repository by name"
+          aria-label={t('addByNameAria')}
         />
         <button className="btn" disabled={!manual.trim()}>
-          Add
+          {t('add')}
         </button>
       </form>
       {manualError && <p className="error small">{manualError}</p>}
@@ -363,37 +366,34 @@ function Repositories({
 
 // ---------- preferences ----------
 
-const NOTIFY_OPTIONS: { value: NotifyMode; label: string }[] = [
-  { value: 'all', label: 'Every finished run' },
-  { value: 'failure', label: 'Failures only' },
-  { value: 'none', label: 'Never' },
-]
+const NOTIFY_OPTIONS = [
+  { value: 'all', label: 'notifyAll' },
+  { value: 'failure', label: 'notifyFailure' },
+  { value: 'none', label: 'notifyNone' },
+] as const satisfies readonly { value: NotifyMode; label: MessageKey }[]
 
 function Preferences({ settings }: { settings: Settings }) {
   const update = (patch: Partial<Settings>) => updateItem('settings', (s) => ({ ...s, ...patch }))
   return (
     <section className="card">
-      <h2>Preferences</h2>
+      <h2>{t('preferences')}</h2>
       <fieldset>
-        <legend>Desktop notifications</legend>
+        <legend>{t('desktopNotifications')}</legend>
         {NOTIFY_OPTIONS.map((o) => (
           <label key={o.value} className="radio">
             <input type="radio" name="notify" checked={settings.notify === o.value} onChange={() => update({ notify: o.value })} />
-            {o.label}
+            {t(o.label)}
           </label>
         ))}
       </fieldset>
       <label className="radio">
         <input type="checkbox" checked={settings.inPage} onChange={(e) => update({ inPage: e.target.checked })} />
-        Show progress on GitHub pages
+        {t('inPageLabel')}
       </label>
-      <p className="muted small indent">
-        Adds a live progress bar to pull requests, the code view and the Actions tab of the repository you are
-        viewing — no need to add it above.
-      </p>
+      <p className="muted small indent">{t('inPageHelp')}</p>
       <label className="radio">
         <input type="checkbox" checked={settings.onlyMine} onChange={(e) => update({ onlyMine: e.target.checked })} />
-        Only count runs I triggered (popup, badge, notifications)
+        {t('onlyMineLabel')}
       </label>
     </section>
   )
@@ -405,16 +405,16 @@ function describeAuthError(e: unknown): string {
   if (e instanceof AuthError) {
     switch (e.code) {
       case 'access_denied':
-        return 'Authorization was cancelled on GitHub.'
+        return t('authCancelled')
       case 'expired_token':
-        return 'The code expired. Please try again.'
+        return t('authExpired')
       case 'device_flow_disabled':
-        return 'Device flow is disabled in the GitHub App settings.'
+        return t('authDeviceDisabled')
       case 'incorrect_client_credentials':
-        return 'The GitHub App client ID is invalid.'
+        return t('authBadClientId')
     }
   }
-  if (e instanceof TypeError) return 'Network error. Check your connection and try again.'
+  if (e instanceof TypeError) return t('authNetwork')
   return e instanceof Error ? e.message : String(e)
 }
 

@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { isActive } from './progress'
 import type { ApiConclusion, ApiRunStatus } from './types'
 
@@ -13,10 +14,8 @@ export function toneOf(status: ApiRunStatus, conclusion: ApiConclusion): Tone {
   return 'neutral'
 }
 
-export const TONE_LABEL: Record<Tone, string> = {
-  running: 'In progress',
-  queued: 'Queued',
-  success: 'Succeeded',
-  failure: 'Failed',
-  neutral: 'Cancelled or skipped',
+export function toneLabel(tone: Tone): string {
+  return t(
+    ({ running: 'toneRunning', queued: 'toneQueued', success: 'toneSuccess', failure: 'toneFailure', neutral: 'toneNeutral' } as const)[tone],
+  )
 }

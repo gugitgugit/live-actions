@@ -1,5 +1,5 @@
 import { APP_SLUG } from '../lib/auth'
-import { REPO_NOT_FOUND } from '../lib/github'
+import { isNotFound } from '../lib/errors'
 import { PAGE_PORT, type PageMessage } from '../lib/messages'
 import { parsePage, runsForPage, type PageContext } from '../lib/page'
 import { isActive } from '../lib/progress'
@@ -178,7 +178,7 @@ function render() {
 function renderBannerFor(ctx: Extract<PageContext, { kind: 'pr' | 'code' }>, now: number): boolean {
   const { runs, repoInfo, meta } = state!
   const page = runsForPage(ctx, Object.values(runs), repoInfo[ctx.repo]?.defaultBranch ?? null)
-  const blocked = meta.repoErrors[ctx.repo] === REPO_NOT_FOUND
+  const blocked = isNotFound(meta.repoErrors[ctx.repo])
   const installUrl = blocked && APP_SLUG ? `https://github.com/apps/${APP_SLUG}/installations/new` : null
 
   if (page.primary.length === 0 && page.othersActive === 0 && !installUrl) {

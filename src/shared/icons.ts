@@ -1,4 +1,4 @@
-import { TONE_LABEL, type Tone } from '../lib/status'
+import { toneLabel, type Tone } from '../lib/status'
 
 // SVG markup shared by the React UI and the content script (which renders without React).
 // Filled icons draw their glyph with --on-accent so they read on both themes.
@@ -20,7 +20,7 @@ const BODY: Record<Tone, string> = {
 }
 
 export function iconSvg(tone: Tone, size = 16): string {
-  const label = TONE_LABEL[tone]
+  const label = toneLabel(tone)
   return (
     `<svg class="icon icon-${tone}" width="${size}" height="${size}" viewBox="0 0 16 16" role="img" aria-label="${label}">` +
     `<title>${label}</title>${BODY[tone]}</svg>`
