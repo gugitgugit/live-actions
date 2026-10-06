@@ -16,6 +16,9 @@ const BANNER_ID = 'actions-pulse-banner'
 const ROW_CLASS = 'actions-pulse-row'
 /** GitHub's repository content container, present on code, pull request and Actions pages */
 const ANCHOR = '#repo-content-pjax-container'
+/** code pages: the branch picker in the toolbar and the latest-commit box at the top of the file list */
+const BRANCH_PICKER = '#ref-picker-repos-header-ref-selector'
+const LATEST_COMMIT = '[data-testid="latest-commit"]'
 
 type State = Pick<StorageSchema, 'settings' | 'runs' | 'repoInfo' | 'meta' | 'commits'>
 let state: State | null = null
@@ -143,14 +146,18 @@ function renderBannerFor(ctx: Extract<PageContext, { kind: 'pr' | 'code' }>, now
 
   let host = document.getElementById(BANNER_ID)
   if (!host) host = createShadowHost(BANNER_ID)
+  // repository home only: /tree/ and /blob/ pages put the branch picker in a side panel
+  const slot = ctx.kind === 'code' && ctx.ref === null ? toolbarSlot() : null
   const anchor = document.querySelector(ANCHOR)
-  if (anchor) {
+  host.classList.toggle('inline', !!slot)
+  host.classList.toggle('floating', !slot && !anchor)
+  if (slot) {
+    if (host.parentElement !== slot.parent || host.nextElementSibling !== slot.before) slot.parent.insertBefore(host, slot.before)
+  } else if (anchor) {
     // a sibling before GitHub's React root, which React never reconciles
-    host.classList.remove('floating')
     if (anchor.firstElementChild !== host) anchor.prepend(host)
-  } else {
-    host.classList.add('floating')
-    if (host.parentElement !== document.body) document.body.append(host)
+  } else if (host.parentElement !== document.body) {
+    document.body.append(host)
   }
 
   renderBanner(
@@ -159,6 +166,31 @@ function renderBannerFor(ctx: Extract<PageContext, { kind: 'pr' | 'code' }>, now
     now,
   )
   return page.primary.some((r) => isActive(r.status))
+}
+
+/**
+ * Repository home: between the toolbar (branch picker, Go to file, Code) and the file list.
+ * This is inside GitHub's React tree, so we only ever add a sibling and never touch
+ * React's own nodes. Found without GitHub's generated class names: the child of the
+ * nearest common ancestor of the branch picker and the latest-commit box that holds the
+ * latter is the file list, and the banner goes right before it.
+ */
+function toolbarSlot(): { parent: Element; before: Element } | null {
+  const picker = document.querySelector(BRANCH_PICKER)
+  const latest = document.querySelector(LATEST_COMMIT)
+  if (!picker || !latest) return null
+  let common = latest.parentElement
+  while (common && !common.contains(picker)) common = common.parentElement
+  if (!common) return null
+  // inserting while React is still hydrating server-rendered markup would make it bail out
+  const app = common.closest('react-app')
+  if (app && !app.classList.contains('loaded')) return null
+  const before = [...common.children].find((c) => c.contains(latest))
+  const toolbar = [...common.children].find((c) => c.contains(picker))
+  if (!before || !toolbar) return null
+  // only a vertical stack (toolbar above the list); in a side-by-side layout the banner would become a column
+  if (toolbar.getBoundingClientRect().bottom > before.getBoundingClientRect().top + 1) return null
+  return { parent: common, before }
 }
 
 /** A compact bar under each running row of the Actions run list. */

@@ -109,6 +109,9 @@ a { color: inherit; text-decoration: none; }
 .hint a { color: var(--ap-accent); }
 .list:empty + .others, .list:empty ~ .hint { margin-top: 0; padding: 8px 12px; border: 1px solid var(--ap-border); border-radius: 0 0 6px 6px; }
 
+/* code pages: inside GitHub's file list column, which already sets width and gutters */
+:host(.inline) .banner { max-width: none; margin: 0 0 16px; padding: 0; }
+
 /* floating fallback when GitHub's layout changed and the anchor is missing */
 :host(.floating) {
   position: fixed;
