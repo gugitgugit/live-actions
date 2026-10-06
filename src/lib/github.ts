@@ -115,6 +115,14 @@ export class GitHubClient {
     return this.request<ApiRun>(`/repos/${fullName}/actions/runs/${runId}`)
   }
 
+  /** Every Actions run for one commit, to roll them up like GitHub's status badge. */
+  async listRunsForCommit(fullName: string, sha: string): Promise<ApiRun[]> {
+    const data = await this.request<{ workflow_runs: ApiRun[] }>(
+      `/repos/${fullName}/actions/runs?head_sha=${sha}&per_page=100`,
+    )
+    return data.workflow_runs
+  }
+
   async listJobs(fullName: string, runId: number): Promise<ApiJob[]> {
     const data = await this.request<{ jobs: ApiJob[] }>(
       `/repos/${fullName}/actions/runs/${runId}/jobs?per_page=100`,

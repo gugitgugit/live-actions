@@ -6,7 +6,8 @@ export const POPUP_PORT = 'popup'
 /** content script on github.com; tells the background which repository the tab shows */
 export const PAGE_PORT = 'page'
 
-export type PageMessage = { type: 'view'; repo: string | null }
+/** `sha`: the commit whose status badge the page shows (code pages), so its full Actions state can be fetched */
+export type PageMessage = { type: 'view'; repo: string | null; sha: string | null }
 
 export function send<T = unknown>(message: Message): Promise<T> {
   return chrome.runtime.sendMessage(message)

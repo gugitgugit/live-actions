@@ -15,7 +15,7 @@ All of this is stored locally in your browser using `chrome.storage.local`. Sign
 
 ## Pages you visit on github.com
 
-To show progress inside GitHub, the extension runs on github.com pages and reads the page address to tell which repository, pull request or branch you are looking at. It then requests that repository's workflow runs from GitHub with your token. Page addresses are not stored or sent anywhere else, and the extension does not read the content of the pages you visit beyond finding where to place its progress bar. This can be turned off in the extension's settings.
+To show progress inside GitHub, the extension runs on github.com pages and reads the page address to tell which repository, pull request or branch you are looking at. It then requests that repository's workflow runs from GitHub with your token. On code pages it also reads the ID of the latest commit shown, to look up that commit's workflow runs and keep its status icon current. Page addresses and commit IDs are not sent anywhere except to GitHub's API, and the extension does not read the content of the pages you visit beyond this and finding where to place its progress bar. This can be turned off in the extension's settings.
 
 ## Where data is sent
 

@@ -1,4 +1,4 @@
-import type { AuthState, DurationStat, Meta, RepoInfo, Settings, TrackedRun } from './types'
+import type { AuthState, CommitInfo, DurationStat, Meta, RepoInfo, Settings, TrackedRun } from './types'
 
 export interface CacheEntry {
   etag: string
@@ -15,6 +15,8 @@ export interface StorageSchema {
   httpCache: Record<string, CacheEntry>
   /** repositories viewed on github.com, key: "owner/name" */
   repoInfo: Record<string, RepoInfo>
+  /** commits shown in an open tab, key: "owner/name@sha" */
+  commits: Record<string, CommitInfo>
   meta: Meta
 }
 
@@ -25,13 +27,14 @@ const defaults: StorageSchema = {
   durations: {},
   httpCache: {},
   repoInfo: {},
+  commits: {},
   meta: { lastPolledAt: null, lastError: null, repoErrors: {}, rateLimit: null, unseenFailures: 0 },
 }
 
 export type StorageKey = keyof StorageSchema
 
 /** keys holding maps keyed by id, which must not be merged with defaults */
-const RECORD_KEYS: ReadonlySet<StorageKey> = new Set(['runs', 'durations', 'httpCache', 'repoInfo'])
+const RECORD_KEYS: ReadonlySet<StorageKey> = new Set(['runs', 'durations', 'httpCache', 'repoInfo', 'commits'])
 
 export async function getItem<K extends StorageKey>(key: K): Promise<StorageSchema[K]> {
   const result = await chrome.storage.local.get(key)

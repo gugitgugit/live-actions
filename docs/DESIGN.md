@@ -115,6 +115,7 @@ flowchart LR
 | `lib/page.ts` | GitHub URL → 페이지 종류 판별, 페이지에 보여줄 run 선택 (순수 함수) | progress, types |
 | `lib/status.ts`, `lib/format.ts` | run 상태 → 표시 톤, 상대 시간 (순수 함수) | progress |
 | `lib/filters.ts` | Popup·배지·알림에 셀 run 판정 (감시 저장소, 내 run만) | types |
+| `lib/commit.ts` | 커밋의 Actions 결과 합산, GitHub 기본 상태 아이콘이 새로고침 후 보여줄 상태 예측 (순수 함수) | progress, status |
 | `lib/notifications.ts` | 알림 ID 생성·해석 (순수 함수) | 없음 |
 | `lib/messages.ts` | 컨텍스트 간 메시지·Port 타입과 헬퍼 | 없음 |
 | `background/index.ts` | 폴링 조율, 상태 전이 감지, 배지, 알림, 토큰 갱신의 **유일한 소유자** | lib 전체 |
@@ -156,6 +157,7 @@ flowchart LR
 | D13 | 서버 | 두지 않음 |
 | D14 | GitHub 페이지 내 진행 바 | content script + Shadow DOM, `#repo-content-pjax-container` 앞에 삽입, 못 찾으면 떠 있는 위젯 |
 | D15 | 추적 대상 확장 | 감시 목록 + 지금 보고 있는 저장소 자동 추적 (알림·배지는 감시 목록만) |
+| D16 | GitHub 기본 상태 아이콘 동기화 | `<style>` 하나로 기존 아이콘을 숨기고 같은 자리에 그림, 페이지를 연 뒤 바뀐 Actions 결과만 반영 |
 
 ---
 
@@ -685,6 +687,8 @@ GitHub는 Turbo와 React 라우팅으로 새로고침 없이 페이지를 바꾸
 
 변경이 감지될 때마다 URL이 바뀌었는지 확인하고, 마운트 위치에 우리 요소가 있는지 확인해 없으면 다시 붙입니다. 렌더링은 몇 번 호출해도 결과가 같게 만들었습니다. Shadow DOM 내부 변경은 이 observer에 잡히지 않으므로 자기 자신의 갱신으로 무한 반복되지 않습니다.
 
+> **변경됨 (2026-10-06)**: 감시 대상을 `<body>`에서 **문서 전체(`<html>`)**로 바꿨습니다. GitHub가 Turbo로 페이지 전체를 이동하면 `<body>` 요소 자체를 교체하는데, 그러면 예전 `<body>`를 보던 observer는 더 이상 아무것도 감지하지 못합니다. D16 작업 중 코드를 검토하다 발견했습니다. 검증 때는 GitHub가 프레임 단위 이동을 써서 드러나지 않았습니다.
+
 **그 밖의 처리**
 - 확장 프로그램을 업데이트·새로고침하면 기존 탭의 content script는 `chrome.*`를 쓸 수 없는 고아 상태가 됩니다. 이를 감지하면 스스로 정리하고 멈춥니다.
 - 1초 갱신 타이머는 실행 중인 run이 보이고 탭이 보일 때만 돕니다.
@@ -730,6 +734,68 @@ GitHub는 Turbo와 React 라우팅으로 새로고침 없이 페이지를 바꾸
 
 ---
 
+### D16. GitHub 기본 상태 아이콘 동기화 (2026-10-06 추가)
+
+**맥락**
+D14의 배너를 써 본 뒤, 사용자가 **GitHub가 원래 보여주는 UI**도 새로고침 없이 바뀌기를 원했습니다. 대상은 저장소 메인·코드 화면의 최근 커밋 박스에 있는 상태 아이콘(✓/✗/●)입니다. 이 아이콘은 페이지를 불러올 때 정해지고, 새로고침해야 바뀝니다.
+
+**DOM 조사 결과 (2026-10-06, vitejs/vite)**
+- 아이콘: `[data-testid="latest-commit"]` 안의 `[data-testid="checks-status-badge-icon"]` 버튼, 그 안의 Octicon SVG (`octicon-check` / `octicon-x` / `octicon-dot-fill`)
+- 같은 박스 안에 커밋 링크 `/commit/<40자리 SHA>`가 있음 → 아이콘이 어느 커밋의 것인지 정확히 알 수 있음
+- 이 영역은 React가 관리함
+
+#### 바꾸는 방법
+
+| 선택지 | 장점 | 단점 |
+|---|---|---|
+| A. SVG를 직접 교체하거나 속성 변경 | 단순 | React가 다시 그리면 원래대로 돌아감. React가 관리하는 노드를 바꾸면 재조정(reconciliation) 중 오류가 날 수 있음 |
+| B. 아이콘 옆에 우리 요소 삽입 | 우리 요소는 자유롭게 갱신 | React가 관리하는 부모에 형제를 끼워 넣어야 함. hydration 중이면 충돌 가능 |
+| C. GitHub 자체 새로고침 유도 (Turbo 방문 등) | GitHub가 직접 올바른 값을 그림 | 스크롤 위치·입력 상태가 날아감. content script의 격리 환경에서는 페이지의 Turbo를 직접 부를 수 없음 |
+| **D. `<head>`에 우리 `<style>` 하나: 원래 SVG를 CSS로 숨기고 `::before`에 아이콘을 그림** | **GitHub 요소를 하나도 쓰지 않음** (읽기만 함). React와 충돌할 여지가 없음. 우리 스타일만 지우면 즉시 원상복구 | 아이콘 위 툴팁이나 클릭 시 나오는 상세 팝업은 바꿀 수 없음 |
+
+**결정**: D
+
+**근거**: 이 영역은 GitHub 화면 중 가장 자주 다시 그려지는 React 영역이라, DOM을 쓰는 방식(A, B)은 언제든 되돌려지거나 오류를 낼 수 있습니다. D는 스타일 규칙만 추가하므로 React가 몇 번을 다시 그려도 규칙은 계속 적용됩니다. 실제 GitHub 페이지에서 시험해 동작을 확인한 뒤 채택했습니다.
+
+**세부 사항**
+- 규칙은 `[data-testid="latest-commit"]:has(a[href$="/commit/<SHA>"]) …`처럼 **그 커밋으로 한정**합니다. 브랜치를 옮겨 다른 커밋이 보이면 예전 규칙이 남아 있어도 적용되지 않습니다.
+- 아이콘 모양은 GitHub와 같은 Primer Octicons(MIT)의 check / x / dot-fill 경로를 그대로 쓰고, CSS mask로 모양만 그린 뒤 색은 Primer 변수로 칠합니다. 그래서 테마를 따르고, 원래 아이콘과 구분되지 않습니다.
+- SHA는 40자리 16진수인지 검사한 뒤에만 CSS에 넣습니다(CSS 주입 방지).
+- GitHub가 `<head>`를 교체해 우리 `<style>`이 사라지면, 다음 갱신 때 다시 만듭니다.
+
+#### 어떤 상태를 보여줄지
+
+| 문제 | 원인 |
+|---|---|
+| 저장된 run만으로는 부족함 | `runs`에는 실행 중이거나 최근 30분 안에 끝난 run만 있음. 같은 커밋의 다른 워크플로가 예전에 실패했다면 ✓를 잘못 보여줄 수 있음 |
+| Actions만으로도 부족함 | GitHub 아이콘은 Vercel·Codecov 같은 **외부 체크까지 합친 결과**인데, 이 확장 프로그램은 Actions만 알 수 있음 |
+
+**결정 1: 보고 있는 커밋의 모든 Actions run을 조회** — content script가 박스에서 읽은 SHA를 Port로 알리면, background가 `GET /repos/{repo}/actions/runs?head_sha=<SHA>`로 그 커밋의 run을 전부 가져와 합산합니다(`commits` 키). 워크플로·이벤트마다 최신 run만 셉니다. 폴링마다 1회지만 ETag로 대부분 304입니다.
+
+**결정 2: 페이지를 연 뒤 Actions에서 바뀐 부분만 반영** — 처음 볼 때 "GitHub 아이콘 상태"와 "Actions 합산 상태"를 기준값으로 기록합니다. 그 뒤 Actions 상태가 기준값과 달라졌을 때만 덮어씁니다. 열었을 때의 GitHub 아이콘은 이미 정확하므로, 바뀐 부분만 반영하면 새로고침한 것과 같은 결과가 됩니다.
+
+외부 체크는 기준값으로 추론합니다(`predictBadge`).
+
+| 열었을 때 | 의미 | 이후 처리 |
+|---|---|---|
+| 아이콘 ✗인데 Actions는 실패가 아님 | 외부 체크가 실패함 | 계속 ✗ 유지 (덮어쓰지 않음) |
+| 아이콘 ●인데 Actions는 성공 | 외부 체크가 진행 중 | Actions가 실패하면 ✗, 아니면 최소 ● 유지 |
+| 그 외 | 아이콘이 Actions를 그대로 반영 | Actions 상태를 따라감 |
+
+예측 결과가 열었을 때의 아이콘과 같으면 덮어쓰기를 지웁니다. GitHub가 아이콘을 스스로 다시 그려 상태가 바뀌면, 그 값을 새 기준값으로 삼습니다.
+
+GitHub의 합산 규칙과 같게, 하나라도 실패하면 다른 run이 진행 중이어도 실패로 봅니다. 취소(cancelled)만 있는 경우는 판단하지 않고 GitHub 아이콘을 그대로 둡니다.
+
+**감수한 단점**
+- **외부 체크는 열었을 때 상태로 고정해 추론합니다.** 페이지를 연 뒤 외부 체크가 바뀌면 반영하지 못합니다. 예를 들어 열었을 때 외부 체크가 진행 중이었다가 끝나면, Actions가 성공해도 ●로 남습니다.
+- **아이콘의 툴팁과 클릭 시 상세 팝업은 GitHub 원본 그대로**라서, 새로고침 전까지 예전 내용이 보입니다.
+- **아이콘이 아직 없는 커밋**(체크가 하나도 등록되기 전에 페이지를 연 경우)은 덮어쓸 대상이 없어 바뀌지 않습니다. 이때는 D14의 배너가 진행 상황을 보여줍니다.
+- 지금은 최근 커밋 박스 한 곳만 지원합니다. 커밋 목록, PR 목록, 브랜치 목록의 상태 아이콘은 화면마다 구조를 따로 조사해야 해서 다음 단계로 미뤘습니다.
+
+**재검토 조건**: GitHub가 외부 체크 결과를 Actions API처럼 조회할 수 있는 방법(Checks API 읽기 권한)을 추가로 받기로 하면, 추론 대신 실제 합산으로 바꿉니다. 단, 권한이 늘어나는 것(G4)과 맞바꾸는 결정입니다.
+
+---
+
 ## 5. 데이터 모델
 
 모두 `chrome.storage.local`에 저장합니다. 타입 정의는 [`src/lib/types.ts`](../src/lib/types.ts), 기본값은 [`src/lib/storage.ts`](../src/lib/storage.ts)에 있습니다.
@@ -742,6 +808,7 @@ GitHub는 Turbo와 React 라우팅으로 새로고침 없이 페이지를 바꾸
 | `durations` | `Record<"owner/repo#workflowId", DurationStat>` | 워크플로별 소요 시간 중앙값, 조회 시각 (6시간 TTL) |
 | `httpCache` | `Record<url, CacheEntry>` | ETag와 응답 본문 (최근 150개) |
 | `repoInfo` | `Record<"owner/repo", RepoInfo>` | 보고 있는 저장소의 기본 브랜치 (하루 TTL) |
+| `commits` | `Record<"owner/repo@sha", CommitInfo>` | 지금 열린 탭이 보여주는 커밋의 Actions 합산 상태 (`pending`/`success`/`failure`/없음). 탭이 닫히면 다음 폴링에서 빠짐 (D16) |
 | `meta` | `Meta` | `lastPolledAt`, `lastError`, `repoErrors`, `rateLimit`, `unseenFailures` |
 
 **스키마 변경 시**: `getItem`은 저장된 객체를 기본값과 병합해 반환하므로, `settings`나 `meta`에 필드를 추가해도 업데이트 직후 기본값이 채워집니다. 필드 이름을 바꾸거나 의미를 바꾸면 `onInstalled`(`reason === 'update'`)에서 변환 코드를 추가해야 합니다.
@@ -817,7 +884,9 @@ sequenceDiagram
 | `lib/progress.ts` | Vitest 단위 테스트 (19개) | 순수 함수라 Chrome 없이 테스트 가능. 진행률은 사용자가 가장 직접 보는 값이고 경계 조건(대기 중 job, 예상 초과, 이력 없음, 실행 중인 step 상한)이 많음 |
 | UI 렌더링 | Chrome API를 대체하는 mock을 넣은 정적 빌드를 브라우저에서 확인 | 실제 계정 없이 레이아웃·상태별 화면 확인 |
 | `lib/page.ts` | Vitest 단위 테스트 (25개) | URL 판별(예약 경로, run 상세, gist 제외), `/`가 들어간 브랜치 경로, PR·브랜치별 run 선택, 워크플로별 최신 run, 저장 형식이 바뀌기 전 데이터 |
-| content script | 테스트용 번들(IIFE)을 만들어 **실제 github.com 페이지**에 mock과 함께 주입 (2026-10-06, vitejs/vite) | 저장소 메인·PR·Actions 목록 삽입 위치, Turbo 이동 시 교체, GitHub가 요소를 지웠을 때 재삽입, XSS 문자열 무해화, 다크 테마를 확인. 실제 설치본 확인은 남음 |
+| `lib/commit.ts` | Vitest 단위 테스트 (15개) | Actions 합산 규칙, 워크플로·이벤트별 최신 run, Octicon 클래스 판별(`octicon-x-circle` 오인식 버그를 테스트가 잡음), 외부 체크 추론 시나리오 |
+| content script | 테스트용 번들(IIFE)을 만들어 **실제 github.com 페이지**에 mock과 함께 주입 (2026-10-06, vitejs/vite) | 저장소 메인·PR·Actions 목록 삽입 위치, Turbo 이동 시 교체, GitHub가 요소를 지웠을 때 재삽입, XSS 문자열 무해화, 다크 테마를 확인. 같은 날 사용자가 실제 설치본에서 배너 표시를 확인 |
+| 기본 상태 아이콘 (D16) | 같은 방식으로 주입. 마침 vite에 새 커밋이 올라와 **실제로 실행 중(●)인 아이콘**으로 확인 | 기준값과 같을 때 그대로 둠, 성공 시 ✓, 실패 시 ✗, 원래 상태로 돌아가면 덮어쓰기 해제, GitHub가 스스로 다시 그리면 기준값 재설정. 붙여 넣는 코드를 줄이려고 배너 렌더링을 뺀 번들로 시험함. 실제 설치본 확인은 남음 |
 | `lib/notifications.ts` | Vitest 단위 테스트 (4개) | 알림 ID 생성·해석. re-run 시 ID가 겹치지 않는지, GitHub 외 URL을 거부하는지 확인 |
 | background 폴링·인증 | 실제 GitHub App으로 수동 확인 (**일부 완료**: 2026-10-06 Device Flow 로그인, 저장소 목록, re-run 완료 알림 확인) | Chrome API와 GitHub 응답에 강하게 의존 |
 
@@ -859,6 +928,8 @@ sequenceDiagram
 | fork에서 온 PR은 PR 화면에 run이 연결되지 않음 | API의 `pull_requests`가 fork PR에서는 비어 있음 | 저장소 메인의 "다른 브랜치에서 실행 중"과 Actions 목록에서는 보임 |
 | 페이지 내 바가 GitHub 화면 구조에 의존 | 기준 요소 2개 (D14) | 떠 있는 위젯으로 대체 |
 | Actions의 run 상세 페이지에는 바가 없음 | 범위 선택 (GitHub가 이미 실시간 로그를 보여줌) | — |
+| 기본 상태 아이콘은 외부 체크를 열었을 때 상태로 고정해 추론 | 외부 체크를 볼 권한이 없음 (D16) | 바뀐 부분만 반영해서 오차 범위를 줄임 |
+| 기본 상태 아이콘의 툴팁·상세 팝업은 갱신되지 않음 | GitHub 요소를 쓰지 않는 방식 (D16) | 배너에 run별 상세 표시 |
 | 탭이 보이지 않으면 페이지 내 바가 갱신되지 않음 | 의도한 설계 (D15) | 탭으로 돌아오면 즉시 다시 연결·갱신 |
 
 ---
@@ -872,7 +943,9 @@ sequenceDiagram
 | 중간 | 한국어 로케일 (`_locales/ko`, `chrome.i18n`) | — |
 | 중간 | 전이 감지 로직을 순수 함수로 분리하고 단위 테스트 추가 | D9, 8장 |
 | ~~낮음~~ 완료 | ~~PR 페이지 content script (진행 바 삽입)~~ → 2026-10-06 PR·코드·Actions 화면으로 구현 | D14 |
-| 높음 | 실제 설치본으로 페이지 내 바 확인 (private 저장소, 실제 run) | D14, D15 |
+| ~~높음~~ 완료 | ~~실제 설치본으로 페이지 내 바 확인~~ → 2026-10-06 사용자 확인 | D14, D15 |
+| 높음 | 실제 설치본으로 기본 상태 아이콘 동기화 확인 | D16 |
+| 중간 | 커밋 목록·PR 목록·브랜치 목록의 상태 아이콘 동기화 | D16 |
 | 낮음 | Firefox 지원 (WXT 이전 검토) | D11 |
 
 ---
@@ -899,3 +972,4 @@ sequenceDiagram
 | 2026-10-06 | D9 알림 ID를 알림마다 고유하게 변경(re-run 시 ID 충돌), 8장에 notifications 테스트와 수동 검증 진행 상황 추가 |
 | 2026-10-06 | D8 진행률에 step 상한 추가(실행 중인 step의 끝을 넘지 않음), 남은 시간 계산 변경, 8장 테스트 수 갱신 |
 | 2026-10-06 | GitHub 페이지 내 진행 바: 목표 G5, D14·D15 추가, D6·D7·D10 변경 기록, 3장 구조도·모듈 표, 5·7·8·9·10장 갱신 |
+| 2026-10-06 | GitHub 기본 상태 아이콘 동기화: D16 추가, D14에 observer 감시 대상 변경 기록, 3·5·8·9·10장 갱신 |
