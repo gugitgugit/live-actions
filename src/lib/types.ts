@@ -148,6 +148,12 @@ export interface TrackedRun {
   completedAt?: number
 }
 
+export interface CommitInfo {
+  /** combined state of all Actions runs for the commit (see lib/commit.ts) */
+  actions: 'pending' | 'success' | 'failure' | null
+  fetchedAt: number
+}
+
 export interface RepoInfo {
   defaultBranch: string | null
   fetchedAt: number

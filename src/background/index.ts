@@ -1,12 +1,13 @@
 import { needsRefresh, refreshAuth } from '../lib/auth'
 import { GitHubClient, GitHubError, HttpCache, REPO_NOT_FOUND } from '../lib/github'
+import { latestPerWorkflowEvent, rollup } from '../lib/commit'
 import { isCounted } from '../lib/filters'
 import { PAGE_PORT, POPUP_PORT, type Message, type PageMessage, type TokenResponse } from '../lib/messages'
 import { runNotificationId, urlFromNotificationId } from '../lib/notifications'
 import { computeProgress, formatDuration, isActive, medianDuration, summarizeJobs } from '../lib/progress'
 import { getItem, setItem, updateItem } from '../lib/storage'
 import { FAILED_CONCLUSIONS as FAILED } from '../lib/status'
-import type { ApiRun, AuthState, DurationStat, Meta, NotifyMode, RepoInfo, Settings, TrackedRun } from '../lib/types'
+import type { ApiRun, AuthState, CommitInfo, DurationStat, Meta, NotifyMode, RepoInfo, Settings, TrackedRun } from '../lib/types'
 
 const ALARM = 'poll'
 const IDLE_PERIOD_MIN = 1
@@ -91,6 +92,7 @@ async function doPoll() {
     getItem('httpCache'),
     getItem('repoInfo'),
   ])
+  const commits: Record<string, CommitInfo> = {}
 
   const watched = new Set(settings.repos.map((r) => r.fullName))
   const viewed = settings.inPage ? viewedRepos() : new Set<string>()
@@ -122,7 +124,13 @@ async function doPoll() {
   await Promise.all(
     [...repos].map(async (fullName) => {
       try {
-        if (viewed.has(fullName)) await refreshRepoInfo(client, fullName, repoInfo, now)
+        if (viewed.has(fullName)) {
+          await refreshRepoInfo(client, fullName, repoInfo, now)
+          for (const sha of viewedCommits(fullName)) {
+            const all = await client.listRunsForCommit(fullName, sha)
+            commits[`${fullName}@${sha}`] = { actions: rollup(latestPerWorkflowEvent(all)), fetchedAt: now }
+          }
+        }
 
         const byId = new Map((await client.listRuns(fullName)).map((r) => [r.id, r]))
 
@@ -204,6 +212,8 @@ async function doPoll() {
     setItem('runs', nextRuns),
     setItem('durations', durations),
     setItem('repoInfo', pruneRepoInfo(repoInfo, now)),
+    // only commits open right now; closed tabs drop out
+    setItem('commits', commits),
     cache.isDirty ? setItem('httpCache', cache.snapshot()) : Promise.resolve(),
   ])
 
@@ -390,11 +400,17 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
 
 // Someone is looking at progress (popup open, or a visible GitHub tab showing it): poll faster.
 let popupPorts = 0
-const pagePorts = new Map<chrome.runtime.Port, string | null>()
+const pagePorts = new Map<chrome.runtime.Port, { repo: string | null; sha: string | null }>()
 let fastTimer: ReturnType<typeof setInterval> | null = null
 
 function viewedRepos(): Set<string> {
-  return new Set([...pagePorts.values()].filter((r): r is string => r !== null))
+  return new Set([...pagePorts.values()].map((v) => v.repo).filter((r): r is string => r !== null))
+}
+
+function viewedCommits(repo: string): Set<string> {
+  return new Set(
+    [...pagePorts.values()].filter((v) => v.repo === repo && v.sha).map((v) => v.sha as string),
+  )
 }
 
 function updateFastPolling() {
@@ -425,14 +441,15 @@ chrome.runtime.onConnect.addListener((port) => {
   }
 
   if (port.name === PAGE_PORT) {
-    pagePorts.set(port, null)
+    pagePorts.set(port, { repo: null, sha: null })
     port.onMessage.addListener((msg: PageMessage) => {
       if (msg.type !== 'view') return
       const before = pagePorts.get(port)
-      pagePorts.set(port, msg.repo)
+      const sha = msg.sha && /^[0-9a-f]{40}$/.test(msg.sha) ? msg.sha : null
+      pagePorts.set(port, { repo: msg.repo, sha })
       updateFastPolling()
-      // a newly opened repository should not wait for the next tick
-      if (msg.repo && msg.repo !== before) poll(true)
+      // a newly opened repository or commit should not wait for the next tick
+      if (msg.repo && (msg.repo !== before?.repo || sha !== before?.sha)) poll(true)
     })
     port.onDisconnect.addListener(() => {
       pagePorts.delete(port)

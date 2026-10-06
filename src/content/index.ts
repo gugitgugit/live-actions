@@ -4,6 +4,7 @@ import { PAGE_PORT, type PageMessage } from '../lib/messages'
 import { parsePage, runsForPage, type PageContext } from '../lib/page'
 import { isActive } from '../lib/progress'
 import { getItem, onItemChanged, type StorageSchema } from '../lib/storage'
+import { readLatestCommitSha, removeNativeBadge, syncNativeBadge } from './native'
 import { createShadowHost, renderBanner, renderRowBar } from './render'
 
 // Runs on every github.com page. GitHub navigates without full reloads (Turbo and React
@@ -16,12 +17,14 @@ const ROW_CLASS = 'actions-pulse-row'
 /** GitHub's repository content container, present on code, pull request and Actions pages */
 const ANCHOR = '#repo-content-pjax-container'
 
-type State = Pick<StorageSchema, 'settings' | 'runs' | 'repoInfo' | 'meta'>
+type State = Pick<StorageSchema, 'settings' | 'runs' | 'repoInfo' | 'meta' | 'commits'>
 let state: State | null = null
 let ctx: PageContext | null = null
 let href = ''
+/** commit in the latest-commit box (code pages); it renders after navigation, so it is re-read on every update */
+let sha: string | null = null
 let port: chrome.runtime.Port | null = null
-let sentRepo: string | null | undefined
+let sent: string | undefined
 let ticker: ReturnType<typeof setInterval> | null = null
 let scheduled = false
 let observer: MutationObserver | null = null
@@ -36,6 +39,7 @@ function teardown() {
   if (ticker) clearInterval(ticker)
   document.getElementById(BANNER_ID)?.remove()
   document.querySelectorAll(`.${ROW_CLASS}`).forEach((n) => n.remove())
+  removeNativeBadge()
 }
 
 // ---------- background connection ----------
@@ -50,7 +54,7 @@ function syncPort() {
     } catch {
       return teardown()
     }
-    sentRepo = undefined
+    sent = undefined
     port.onDisconnect.addListener(() => {
       port = null
       // the service worker restarted; reconnect if still wanted
@@ -62,9 +66,10 @@ function syncPort() {
     port = null
     return
   }
-  if (port && repo !== sentRepo) {
-    port.postMessage({ type: 'view', repo } satisfies PageMessage)
-    sentRepo = repo
+  const msg: PageMessage = { type: 'view', repo, sha: repo ? sha : null }
+  if (port && JSON.stringify(msg) !== sent) {
+    port.postMessage(msg)
+    sent = JSON.stringify(msg)
   }
 }
 
@@ -86,12 +91,24 @@ function update() {
     ctx = parsePage(href)
     syncPort()
   }
+  const nextSha = ctx?.kind === 'code' ? readLatestCommitSha() : null
+  if (nextSha !== sha) {
+    sha = nextSha
+    syncPort()
+  }
   render()
 }
 
 function render() {
   const now = Date.now()
   let animating = false
+
+  if (state?.settings.inPage && ctx?.kind === 'code' && sha) {
+    const key = `${ctx.repo}@${sha}`
+    syncNativeBadge(key, sha, state.commits[key]?.actions)
+  } else {
+    removeNativeBadge()
+  }
 
   if (!state || !state.settings.inPage || !ctx) {
     document.getElementById(BANNER_ID)?.remove()
@@ -176,15 +193,16 @@ function removeRowBars(keep: Set<Element>) {
 // ---------- start ----------
 
 async function start() {
-  const [settings, runs, repoInfo, meta] = await Promise.all([
+  const [settings, runs, repoInfo, meta, commits] = await Promise.all([
     getItem('settings'),
     getItem('runs'),
     getItem('repoInfo'),
     getItem('meta'),
+    getItem('commits'),
   ])
-  state = { settings, runs, repoInfo, meta }
+  state = { settings, runs, repoInfo, meta, commits }
 
-  for (const key of ['settings', 'runs', 'repoInfo', 'meta'] as const) {
+  for (const key of ['settings', 'runs', 'repoInfo', 'meta', 'commits'] as const) {
     onItemChanged(key, (value) => {
       if (!state) return
       state = { ...state, [key]: value }
@@ -198,7 +216,8 @@ async function start() {
     schedule()
   })
   observer = new MutationObserver(schedule)
-  observer.observe(document.body, { childList: true, subtree: true })
+  // the whole document, not <body>: a full Turbo visit replaces <body>, which would silence an observer on it
+  observer.observe(document.documentElement, { childList: true, subtree: true })
   update()
 }
 
