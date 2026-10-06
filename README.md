@@ -1,7 +1,8 @@
 # Actions Pulse
 
-GitHub Actions 워크플로 진행도를 툴바에서 바로 보여주는 Chrome 확장 프로그램 (Manifest V3).
+GitHub Actions 워크플로 진행도를 GitHub 페이지 안과 툴바에서 바로 보여주는 Chrome 확장 프로그램 (Manifest V3).
 
+- **GitHub 페이지 안 진행 바**: PR·저장소 코드 화면·Actions 탭에서 새로고침 없이 진행과 완료 여부 확인 (보고 있는 저장소 자동 추적)
 - 실행 중인 run별 진행 바, 현재 job/step, 예상 남은 시간
 - 툴바 배지: 실행 중 개수, 확인하지 않은 실패는 빨간 `!`
 - 완료/실패 데스크톱 알림 (클릭하면 run 페이지로 이동)
@@ -16,7 +17,8 @@ GitHub Actions 워크플로 진행도를 툴바에서 바로 보여주는 Chrome
 | 인증 | GitHub App + OAuth Device Flow (client secret 불필요), 대안으로 fine-grained PAT |
 | 폴링 | `chrome.alarms` — 실행 중일 때 30초, 유휴 시 1분, 팝업이 열려 있으면 10초 |
 | Rate limit | `ETag` 조건부 요청 — `304` 응답은 한도에서 차감되지 않음 |
-| 진행률 | 같은 워크플로의 최근 성공 run 5개 중앙값 대비 경과 시간, 이력이 없으면 job별 step 완료율 평균 |
+| 진행률 | 같은 워크플로의 최근 성공 run 5개 중앙값으로 보간하되 실제 step 진행도를 넘지 않음, 이력이 없으면 step 완료율 |
+| 페이지 내 바 | content script + Shadow DOM, GitHub 테마 변수 사용, 페이지 이동은 DOM 변경 감지로 처리 |
 
 ```
 src/
@@ -24,9 +26,11 @@ src/
   lib/auth.ts           Device Flow, refresh
   lib/github.ts         REST 클라이언트 + ETag 캐시
   lib/progress.ts       진행률/예상 시간 계산 (단위 테스트 있음)
+  lib/page.ts           GitHub URL 판별, 페이지별 run 선택 (단위 테스트 있음)
   lib/storage.ts        타입이 지정된 chrome.storage 래퍼
   popup/                툴바 팝업
   options/              로그인, 저장소 선택, 알림 설정
+  content/              github.com 페이지 안 진행 바 (React 없이 DOM API)
 ```
 
 ## 개발
@@ -70,7 +74,7 @@ npm run build
      - `alarms`: 주기적으로 GitHub API를 조회해 진행도 갱신
      - `notifications`: run 완료/실패 알림
      - `https://api.github.com/*`: 워크플로 run/job 조회
-     - `https://github.com/*`: OAuth Device Flow 로그인 엔드포인트
+     - `https://github.com/*`: OAuth Device Flow 로그인 엔드포인트, PR·코드·Actions 화면에 진행 바 표시(content script)
    - Remote code: 사용 안 함
    - Data usage: "Authentication information" 수집 체크, 판매/전송 없음
    - 개인정보처리방침 URL: [PRIVACY.md](PRIVACY.md)를 GitHub Pages 등에 게시한 주소

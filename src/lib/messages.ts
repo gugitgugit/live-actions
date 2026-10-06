@@ -3,6 +3,10 @@ export type Message = { type: 'poll' } | { type: 'getToken' }
 export type TokenResponse = { token: string } | { error: string }
 
 export const POPUP_PORT = 'popup'
+/** content script on github.com; tells the background which repository the tab shows */
+export const PAGE_PORT = 'page'
+
+export type PageMessage = { type: 'view'; repo: string | null }
 
 export function send<T = unknown>(message: Message): Promise<T> {
   return chrome.runtime.sendMessage(message)

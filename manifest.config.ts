@@ -23,6 +23,14 @@ export default defineManifest({
     service_worker: 'src/background/index.ts',
     type: 'module',
   },
+  content_scripts: [
+    {
+      // progress inside pull request, code and Actions pages; same origin as the existing host permission
+      matches: ['https://github.com/*'],
+      js: ['src/content/index.ts'],
+      run_at: 'document_idle',
+    },
+  ],
   permissions: ['storage', 'alarms', 'notifications'],
   // api.github.com: REST API, github.com: OAuth device flow endpoints (no CORS headers there)
   host_permissions: ['https://api.github.com/*', 'https://github.com/*'],

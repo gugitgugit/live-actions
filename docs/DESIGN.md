@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 상태 | MVP 구현 완료 (v0.1.0), Web Store 제출 전 |
+| 상태 | MVP 구현 완료 (v0.1.0) + GitHub 페이지 내 진행 바 추가, Web Store 제출 전 |
 | 최종 수정 | 2026-10-06 |
 | 대상 독자 | 이 프로젝트를 유지보수하거나 설계를 검토하는 개발자 |
 
@@ -45,6 +45,7 @@ Chrome Web Store는 익스텐션이 하나의 명확한 목적을 갖도록 요�
 | G2 | 끝난 순간을 놓치지 않음 | 완료/실패 시 데스크톱 알림, 확인하지 않은 실패는 배지로 유지 |
 | G3 | 누구나 설치해서 쓸 수 있음 | Chrome Web Store 공개 배포, 별도 서버 없음 |
 | G4 | 신뢰할 수 있는 최소 권한 | GitHub에 읽기 전용 권한만 요청 |
+| G5 | GitHub 화면 안에서 새로고침 없이 확인 (2026-10-06 추가) | PR·코드·Actions 화면에 진행 바가 들어가고, 완료되면 새로고침 없이 결과로 바뀜 |
 
 ### 범위 밖 (Non-goals)
 
@@ -83,6 +84,7 @@ flowchart LR
     ST[("chrome.storage.local<br/>단일 출처")]
     PU["Popup<br/>(popup/App.tsx)<br/>읽기 전용 렌더링"]
     OP["Options page<br/>(options/Options.tsx)<br/>로그인 · 저장소 · 설정"]
+    CS["Content script<br/>(content/index.ts)<br/>github.com 페이지 안 진행 바"]
   end
   GH["GitHub REST API<br/>api.github.com"]
   GL["OAuth Device Flow<br/>github.com/login/*"]
@@ -97,6 +99,8 @@ flowchart LR
   OP -- "getToken 메시지" --> SW
   OP -- "Device Flow" --> GL
   OP -- "저장소 목록 조회" --> GH
+  ST -- "onChanged 구독" --> CS
+  CS -- "Port: 보고 있는 저장소 (탭이 보일 때만)" --> SW
 ```
 
 ### 모듈 책임
@@ -108,10 +112,15 @@ flowchart LR
 | `lib/auth.ts` | Device Flow, 토큰 갱신, 갱신 필요 여부 판단 | types |
 | `lib/github.ts` | REST 클라이언트, ETag 캐시, rate limit 헤더 수집 | types, storage(타입만) |
 | `lib/progress.ts` | 진행률·예상 시간·포맷 계산 (**Chrome API 없는 순수 함수**) | types |
-| `lib/messages.ts` | 컨텍스트 간 메시지 타입과 헬퍼 | 없음 |
+| `lib/page.ts` | GitHub URL → 페이지 종류 판별, 페이지에 보여줄 run 선택 (순수 함수) | progress, types |
+| `lib/status.ts`, `lib/format.ts` | run 상태 → 표시 톤, 상대 시간 (순수 함수) | progress |
+| `lib/filters.ts` | Popup·배지·알림에 셀 run 판정 (감시 저장소, 내 run만) | types |
+| `lib/notifications.ts` | 알림 ID 생성·해석 (순수 함수) | 없음 |
+| `lib/messages.ts` | 컨텍스트 간 메시지·Port 타입과 헬퍼 | 없음 |
 | `background/index.ts` | 폴링 조율, 상태 전이 감지, 배지, 알림, 토큰 갱신의 **유일한 소유자** | lib 전체 |
 | `popup/`, `options/` | 화면. 상태는 storage에서 읽고, 쓰기는 설정·인증만 | lib, shared |
-| `shared/` | 두 화면이 함께 쓰는 hook, 아이콘, 테마 | lib |
+| `content/` | github.com 페이지에 진행 바 삽입. React 없이 DOM API로 렌더링 (D14) | lib, shared/icons |
+| `shared/` | 화면들이 함께 쓰는 hook, 아이콘 마크업, 테마 | lib |
 
 의존 방향은 `화면 → lib`, `background → lib`이고 `lib`은 화면이나 background를 모릅니다. `progress.ts`를 순수 함수로 둔 이유는 [D8](#d8-진행률-계산)과 [8장](#8-테스트-전략)에 있습니다.
 
@@ -137,14 +146,16 @@ flowchart LR
 | D3 | 갱신 방식 | `chrome.alarms` 폴링 (30초/1분) + Popup이 열려 있으면 10초 |
 | D4 | rate limit 대응 | ETag 조건부 요청 + 소요 시간 캐시 |
 | D5 | 인증 | GitHub App + Device Flow, 대안으로 PAT |
-| D6 | UI 표면 | Popup + Badge + Options + Notifications |
+| D6 | UI 표면 | Popup + Badge + Options + Notifications + **GitHub 페이지 내 바** (2026-10-06 추가, D14) |
 | D7 | 상태 관리 | `chrome.storage.local` 단일 출처, background가 유일한 폴링·갱신 주체 |
 | D8 | 진행률 계산 | 과거 소요 시간 중앙값으로 보간하되 실제 step 진행도를 하한·상한으로 제한, 이력이 없으면 step 완료율 (2026-10-06 상한 추가) |
 | D9 | 완료 감지와 알림 | 이전 상태와 비교한 전이 감지 + 5분 catch-up |
-| D10 | 권한 | `storage`, `alarms`, `notifications` + GitHub 호스트 2개 |
+| D10 | 권한 | `storage`, `alarms`, `notifications` + GitHub 호스트 2개 (content script 추가 후에도 동일) |
 | D11 | 빌드 도구 | Vite + CRXJS |
 | D12 | UI 라이브러리 | React |
 | D13 | 서버 | 두지 않음 |
+| D14 | GitHub 페이지 내 진행 바 | content script + Shadow DOM, `#repo-content-pjax-container` 앞에 삽입, 못 찾으면 떠 있는 위젯 |
+| D15 | 추적 대상 확장 | 감시 목록 + 지금 보고 있는 저장소 자동 추적 (알림·배지는 감시 목록만) |
 
 ---
 
@@ -354,6 +365,17 @@ Popup을 열면(Port 연결) 실패를 "확인함"으로 보고 카운터를 0�
 
 **근거**: 각 표면의 수명에 맞춰 기능을 배치했습니다. 오래 걸리는 작업(로그인)은 오래 살아 있는 곳에, 잠깐 보는 정보는 Popup에, 놓치면 안 되는 정보는 Badge와 Notifications에 둡니다.
 
+> **변경됨 (2026-10-06): Content script 채택**
+>
+> MVP를 실사용해 본 뒤, 사용자가 원래 원한 것은 툴바 Popup이 아니라 **GitHub 화면 안에서 새로고침 없이 CI/CD 완료 여부를 보는 것**이었음이 분명해졌습니다(목표 G5 추가). 보류 이유였던 "GitHub DOM에 의존해 깨지기 쉬움"은 사라진 게 아니라, D14의 삽입 전략(안정적인 컨테이너 하나만 사용, GitHub 요소를 수정하지 않음, 못 찾으면 떠 있는 위젯)으로 위험을 줄였습니다.
+>
+> 기존 Popup·배지·알림은 유지합니다. GitHub 탭 밖에 있을 때도 완료를 알 수 있고, 추가 비용이 거의 없기 때문입니다. 역할은 이렇게 나뉩니다.
+>
+> | 표면 | 대상 저장소 | 용도 |
+> |---|---|---|
+> | GitHub 페이지 내 바 | 지금 보고 있는 저장소 | 그 화면(PR, 브랜치)에 해당하는 run의 진행과 결과 |
+> | Popup·배지·알림 | 설정의 감시 목록 | GitHub 밖에서도 알아야 하는 run |
+
 ---
 
 ### D7. 상태 관리: storage를 단일 출처로
@@ -396,6 +418,16 @@ background, Popup, Options page는 서로 다른 JS 컨텍스트라 메모리를
 | `runtime.connect` (Port) | Popup이 열려 있다는 신호. 10초 폴링 시작, 실패 배지 초기화, 닫히면 정리 |
 
 메시지 핸들러는 `sender.id`가 자기 자신일 때만 응답합니다.
+
+> **변경됨 (2026-10-06): content script 추가에 따른 보강**
+>
+> | 추가 | 내용 |
+> |---|---|
+> | `page` Port | content script가 연결하고, 지금 보이는 저장소를 `{ type: 'view', repo }`로 알림. 탭이 숨겨지면 연결을 끊음. background는 연결된 Port들의 저장소 집합을 폴링 대상에 더함(D15) |
+> | `repoInfo` 키 | 보고 있는 저장소의 기본 브랜치. background만 씀, content script가 읽음 |
+> | `getToken` 제한 | content script도 확장 프로그램 ID로 메시지를 보낼 수 있으므로, `sender.tab`이 있는 요청(=웹페이지 안에서 온 요청)에는 토큰을 주지 않음 |
+>
+> **솔직한 한계**: `chrome.storage.local`은 content script에서도 읽을 수 있고, 접근 범위를 좁히는 `setAccessLevel`은 `storage.session`에만 적용됩니다. 그래서 `getToken` 제한은 심층 방어일 뿐이고, 실제 방어선은 **content script가 탈취당하지 않게 하는 것**입니다. content script는 `auth`를 읽지 않으며, 외부 데이터를 HTML로 해석하지 않습니다(D14의 XSS 정책). 페이지의 JS는 격리된 실행 환경(isolated world) 때문에 `chrome.storage`에 직접 접근할 수 없습니다.
 
 ---
 
@@ -530,6 +562,12 @@ background는 최대 30초마다 갱신하므로, 저장된 진행률을 그대�
 | `<all_urls>`, content script | content script는 보류 (D6). 도입할 때도 `https://github.com/*/pull/*`처럼 좁은 범위로 제한 |
 | `clipboardWrite` | 사용자 클릭 직후의 `navigator.clipboard.writeText`는 권한 없이 동작 |
 
+> **변경됨 (2026-10-06): content script 추가**
+>
+> - `content_scripts`를 `https://github.com/*`에 등록했습니다. 로그인용으로 이미 `https://github.com/*` host permission이 있어서 **설치 경고 문구는 늘지 않습니다**. 위 표에서 "도입할 때도 `/pull/*`처럼 좁게"라고 적었지만, 대상이 PR·코드·Actions 세 종류이고 GitHub가 새로고침 없이 페이지를 오가기 때문에(PR 목록 → PR로 이동할 때 content script가 새로 주입되지 않음) 좁은 matches로는 이동 후 바가 나타나지 않습니다. 그래서 github.com 전체에 넣고, 어느 페이지에서 그릴지는 코드에서 판별합니다(`parsePage`). 다른 페이지에서는 아무것도 하지 않습니다.
+> - CRXJS는 content script를 ES 모듈로 불러오기 위해 청크 파일을 `web_accessible_resources`(github.com 한정)에 등록합니다. 그 결과 github.com이 이 익스텐션의 설치 여부를 알아낼 수 있습니다. 담긴 것은 코드뿐이고 비밀값은 없어 허용 가능한 수준으로 판단했습니다.
+> - Web Store 심사용 사유: "Shows workflow progress inside GitHub pull request, code and Actions pages." 
+
 ---
 
 ### D11. 빌드 도구: Vite + CRXJS
@@ -582,6 +620,114 @@ background는 최대 30초마다 갱신하므로, 저장된 진행률을 그대�
 - 서버가 없으면 운영 비용과 장애 지점이 없고, 사용자 데이터가 개발자를 거치지 않습니다. 개인정보처리방침이 "GitHub 외에는 아무 데도 보내지 않는다"로 단순해집니다(C7).
 - 원격 코드 금지 정책(C7)에 맞춰 모든 코드는 번들에 포함하고, 런타임에 외부 스크립트를 불러오지 않습니다.
 
+
+---
+
+### D14. GitHub 페이지 내 진행 바 (2026-10-06 추가)
+
+**맥락**
+사용자는 PR, 저장소 코드 화면, Actions 탭에서 새로고침 없이 진행과 완료 여부를 보고 싶어 했습니다(G5). 여기서 정할 것은 **어디에, 어떻게 끼워 넣을지**, 그리고 **GitHub가 화면을 바꿔도 버티는 방법**이었습니다.
+
+**실제 GitHub DOM 조사 결과 (2026-10-06, vitejs/vite 공개 저장소)**
+
+| 화면 | 발견한 것 | 설계에 준 영향 |
+|---|---|---|
+| 저장소 메인 | `#repo-content-pjax-container` 아래에 React 앱(`react-app`) | React 루트 **바깥 형제 위치**에 넣으면 React가 다시 그려도 지워지지 않음 |
+| PR | 새 React UI로 바뀌어 예전 ID(`#partial-discussion-header`, merge box 등)가 **모두 사라짐**. 같은 컨테이너는 존재 | PR 내부 요소에 기대지 않고 같은 컨테이너를 사용 |
+| Actions 목록 | 각 행이 `js-socket-channel js-updatable-content` → **GitHub가 WebSocket으로 행 상태를 이미 실시간 갱신**. 진행률·남은 시간은 없음 | 상태 아이콘이 아니라 진행률을 보탬. GitHub가 행을 통째로 바꾸면 우리 요소도 사라지므로 다시 붙이는 처리가 필요 |
+| 공통 | Primer CSS 변수(`--fgColor-default` 등)가 문서 루트에 정의됨 | Shadow DOM 안에서도 상속되므로 GitHub 테마를 그대로 따름 |
+
+#### 삽입 위치
+
+| 선택지 | 장점 | 단점 |
+|---|---|---|
+| A. 화면별 세부 요소 옆 (PR merge box, 최근 커밋 박스 등) | 문맥상 가장 자연스러움 | 조사 결과 PR은 이미 ID가 사라짐. 화면마다 다른 선택자를 유지해야 해서 GitHub 개편마다 깨짐 |
+| **B. 공통 컨테이너 하나(`#repo-content-pjax-container`)의 맨 앞** | 선택자 하나로 PR·코드 화면 모두 해결. React 루트 바깥이라 재렌더링에 안전 | PR 내부(merge box 근처)가 아니라 저장소 탭 바로 아래에 위치 |
+| C. 항상 떠 있는 위젯 | DOM 의존 없음 | 내용을 가림. "GitHub UI 안에 넣고 싶다"는 요구와 다름 |
+
+**결정**: PR·코드 화면은 B, 컨테이너를 못 찾으면 C로 대체합니다. Actions 목록은 각 행의 run 링크(`a[href$="/actions/runs/<id>"]`)를 기준으로 그 행 안에 작은 바를 붙입니다. run ID가 들어간 링크는 화면 구조가 바뀌어도 남아 있을 가능성이 가장 높은 요소이기 때문입니다.
+
+**근거**: 깨지기 쉬운 지점을 **선택자 2개**(컨테이너, run 링크)로 줄였고, 둘 다 없어져도 떠 있는 위젯으로 기능은 유지됩니다. 실제로 PR 화면의 옛 선택자가 이미 사라진 것을 확인한 만큼, 화면별 세부 위치(A)는 유지 비용이 너무 큽니다.
+
+#### 화면별로 보여주는 run
+
+| 화면 | 선택 기준 | 근거 |
+|---|---|---|
+| PR (`/pull/N`, 하위 탭 포함) | run의 `pull_requests[].number`에 N이 있는 run | API가 PR과 run을 직접 연결해 줌. PR 권한을 추가로 받지 않아도 됨 (2026-10-06 API로 확인) |
+| 저장소 메인 | 기본 브랜치의 run + "다른 브랜치에서 N개 실행 중" 링크 | 메인 화면은 기본 브랜치를 보여주므로. 방금 push한 다른 브랜치를 놓치지 않도록 개수만 표시 |
+| `/tree/…`, `/blob/…` | 경로 앞부분과 일치하는 가장 긴 브랜치 이름 | 브랜치 이름에 `/`가 들어갈 수 있어서 `feat/x/src/a.ts`만으로는 경계를 알 수 없음 |
+| Actions 목록 | 화면에 보이는 행 중 실행 중인 run | 끝난 행은 GitHub가 이미 결과를 보여줌 |
+
+PR이나 브랜치에는 이전 push의 run이 쌓이므로, **워크플로마다 가장 최근 run만** 보여줍니다(`latestPerWorkflow`). 실행 중인 것이 위에 옵니다. 끝난 run은 30분 동안 "Passed in 1m 20s · 2m ago"처럼 결과로 남아서, 새로고침 없이 완료를 확인할 수 있습니다. 보여줄 run이 없으면 아무것도 그리지 않습니다(GitHub 화면을 어지럽히지 않음).
+
+#### 격리와 렌더링
+
+| 결정 | 이유 |
+|---|---|
+| **Shadow DOM** | GitHub CSS가 우리 요소를 건드리지 않고, 우리 CSS도 밖으로 새지 않음 |
+| **Primer CSS 변수 + 기본값** | Shadow DOM 경계를 넘어 상속되므로 라이트·다크·고대비 테마를 자동으로 따름. 변수 이름이 바뀌어도 기본값으로 표시됨 |
+| **React 대신 DOM API** | content script는 모든 GitHub 페이지에 주입되므로 가볍게 유지 (빌드 결과 12.5KB, gzip 5KB. React를 넣으면 약 220KB). 그리는 요소가 작아 선언형 렌더링의 이득이 작음 |
+| **제자리 갱신** | 1초마다 다시 계산할 때 DOM을 새로 만들지 않고 값만 바꿈. 새로 만들면 바의 CSS transition이 끊김 |
+| **아이콘 마크업 공유** | `shared/icons.ts`의 SVG 문자열을 Popup(React)과 content script가 같이 사용 |
+
+#### XSS 정책
+
+run 제목·브랜치·워크플로 이름은 **커밋한 사람이 정하는 값**이고, 이 코드는 github.com 안에서 실행됩니다. 그래서 외부 데이터는 모두 `textContent`로만 넣고, `innerHTML`은 코드 안의 상수(아이콘)에만 씁니다. 수동 검증 때 `<img src=x onerror=alert(1)>`을 제목으로 넣어 글자 그대로 표시되는 것을 확인했습니다.
+
+#### GitHub의 페이지 이동 처리
+
+GitHub는 Turbo와 React 라우팅으로 새로고침 없이 페이지를 바꾸고, Actions 행처럼 일부를 스스로 다시 그립니다.
+
+| 선택지 | 단점 |
+|---|---|
+| 특정 이벤트 구독 (`turbo:load` 등) | GitHub 내부 이벤트라 문서화되어 있지 않고 화면마다 다름 (Turbo 화면과 React 화면이 섞여 있음) |
+| **DOM 변경 감지 (`MutationObserver`) + 멱등 렌더링** | DOM 변경이 잦으면 호출이 많아짐 → `requestAnimationFrame`으로 프레임당 한 번으로 묶음 |
+
+변경이 감지될 때마다 URL이 바뀌었는지 확인하고, 마운트 위치에 우리 요소가 있는지 확인해 없으면 다시 붙입니다. 렌더링은 몇 번 호출해도 결과가 같게 만들었습니다. Shadow DOM 내부 변경은 이 observer에 잡히지 않으므로 자기 자신의 갱신으로 무한 반복되지 않습니다.
+
+**그 밖의 처리**
+- 확장 프로그램을 업데이트·새로고침하면 기존 탭의 content script는 `chrome.*`를 쓸 수 없는 고아 상태가 됩니다. 이를 감지하면 스스로 정리하고 멈춥니다.
+- 1초 갱신 타이머는 실행 중인 run이 보이고 탭이 보일 때만 돕니다.
+- 대기 중(queued) run은 진행률과 남은 시간을 만들어 내지 않고 "Waiting for a runner… · queued 27s"만 표시합니다. 아무것도 시작하지 않았는데 퍼센트를 보여주면 지어낸 값이 되기 때문입니다(Popup도 같이 수정).
+- 설정에 "Show progress on GitHub pages" 끄기 옵션을 둡니다(기본 켜짐).
+
+**감수한 단점**
+- 바가 PR의 merge box 근처가 아니라 저장소 탭 바로 아래에 있습니다. 위치의 자연스러움보다 깨지지 않는 쪽을 택했습니다.
+- 선택자 두 개는 여전히 GitHub에 의존합니다. 둘 다 사라지면 PR·코드 화면은 떠 있는 위젯으로 대체되지만, Actions 목록의 행별 바는 표시되지 않습니다.
+- 다른 사람의 저장소(fork)에서 올라온 PR은 API의 `pull_requests`가 비어 있어 PR 화면에 run이 연결되지 않습니다.
+
+**재검토 조건**: GitHub가 `#repo-content-pjax-container`를 없애면 떠 있는 위젯이 기본이 되므로, 그때 새 기준 요소를 조사합니다. 사용자가 PR 내부 위치를 강하게 원하면 PR 화면만 별도 선택자를 시도하고 실패 시 B로 돌아가는 방식을 검토합니다.
+
+---
+
+### D15. 추적 대상: 보고 있는 저장소 자동 추적 (2026-10-06 추가)
+
+**맥락**
+지금까지는 설정에서 고른 저장소만 폴링했습니다. GitHub 페이지 안의 바는 "지금 보고 있는 저장소"의 정보가 필요한데, 그 저장소가 감시 목록에 없으면 데이터가 없습니다.
+
+**선택지**
+
+| 선택지 | 장점 | 단점 |
+|---|---|---|
+| A. 감시 목록에 있는 저장소만 | 폴링 범위가 예측 가능 | 저장소마다 미리 등록해야 바가 보임. 처음 보는 저장소에서는 아무것도 안 나옴 |
+| **B. 감시 목록 + 지금 보고 있는 저장소** | 등록 없이 바로 동작 | 탭을 여는 저장소만큼 폴링이 늘어남 |
+
+**결정**: B (사용자 선택)
+
+**세부 결정**
+
+| 항목 | 결정 | 근거 |
+|---|---|---|
+| "보고 있다"의 기준 | 해당 저장소 페이지가 열려 있고 **탭이 화면에 보일 때**만 Port 연결 | 백그라운드 탭까지 폴링하면 탭 수만큼 비용이 늘고, Port가 Service Worker를 계속 깨워 둠 |
+| 폴링 주기 | 보이는 탭이 있으면 10초 (Popup이 열려 있을 때와 같은 빠른 폴링) | 사용자가 지켜보는 중. 대부분 304라 비용이 작음(D4) |
+| 알림·배지 | **감시 목록 저장소만** | 잠깐 들여다본 저장소의 run마다 알림이 오면 소음. 그 화면에서 이미 결과를 보고 있음 |
+| "내 run만" 필터 | 폴링 단계가 아니라 **Popup·배지·알림 단계**에서 적용 (`isCounted`) | PR 화면에서는 다른 사람이 올린 커밋의 run도 봐야 함 |
+| 기본 브랜치 | 보고 있는 저장소만 `GET /repos/{repo}`로 조회해 하루 캐시 (`repoInfo`) | 저장소 메인에 맞는 run을 고르려면 필요. 메타데이터 권한으로 충분 |
+| 완료 run 보관 | 저장소당 최대 10개 (기존: 전체 10개) | 저장소가 늘어나면 한 저장소가 다른 저장소의 기록을 밀어낼 수 있음 |
+| 접근 불가 저장소 | 404면 페이지에 "앱을 이 저장소에 설치하세요" 안내와 설치 링크 | GitHub App은 설치된 저장소만 볼 수 있음. 아무것도 안 보이면 원인을 알 수 없음 |
+
+**감수한 단점**: 여러 저장소 탭을 번갈아 보면 폴링 대상이 늘어납니다. 보이는 탭은 보통 하나라서 실제 증가는 크지 않습니다.
+
 ---
 
 ## 5. 데이터 모델
@@ -591,10 +737,11 @@ background는 최대 30초마다 갱신하므로, 저장된 진행률을 그대�
 | 키 | 타입 | 내용 |
 |---|---|---|
 | `auth` | `AuthState \| null` | `kind`(`app`/`pat`), `accessToken`, `login`, `expiresAt`, `refreshToken`, `refreshTokenExpiresAt` |
-| `settings` | `Settings` | `repos`(감시 저장소), `notify`(`all`/`failure`/`none`), `onlyMine` |
-| `runs` | `Record<"owner/repo#runId", TrackedRun>` | 실행 중 run + 최근 30분 내 완료 run(최대 10개). job 요약과 계산된 진행률 포함 |
+| `settings` | `Settings` | `repos`(감시 저장소), `notify`(`all`/`failure`/`none`), `onlyMine`, `inPage`(페이지 내 바, 기본 켜짐) |
+| `runs` | `Record<"owner/repo#runId", TrackedRun>` | 감시·조회 중인 저장소의 실행 중 run + 최근 30분 내 완료 run(저장소당 최대 10개). job 요약, 계산된 진행률, `headSha`, `prNumbers` 포함 |
 | `durations` | `Record<"owner/repo#workflowId", DurationStat>` | 워크플로별 소요 시간 중앙값, 조회 시각 (6시간 TTL) |
 | `httpCache` | `Record<url, CacheEntry>` | ETag와 응답 본문 (최근 150개) |
+| `repoInfo` | `Record<"owner/repo", RepoInfo>` | 보고 있는 저장소의 기본 브랜치 (하루 TTL) |
 | `meta` | `Meta` | `lastPolledAt`, `lastError`, `repoErrors`, `rateLimit`, `unseenFailures` |
 
 **스키마 변경 시**: `getItem`은 저장된 객체를 기본값과 병합해 반환하므로, `settings`나 `meta`에 필드를 추가해도 업데이트 직후 기본값이 채워집니다. 필드 이름을 바꾸거나 의미를 바꾸면 `onInstalled`(`reason === 'update'`)에서 변환 코드를 추가해야 합니다.
@@ -619,7 +766,7 @@ sequenceDiagram
   else rate limit 20회 미만
     SW->>SW: 이번 폴링 건너뜀
   else 정상
-    par 저장소별 병렬
+    par 저장소별 병렬 (감시 목록 + 보고 있는 저장소)
       SW->>GH: GET runs (If-None-Match)
       GH-->>SW: 200 또는 304(캐시 사용)
       opt 추적 중이던 run이 목록에 없음
@@ -653,6 +800,8 @@ sequenceDiagram
 | 갱신 토큰 만료 (6개월) | 위와 같음 | 위와 같음 |
 | 특정 저장소 404 | 그 저장소만 `repoErrors`에 기록, 다른 저장소는 계속 | Popup 하단, Options의 해당 저장소 아래에 이유 표시 |
 | 특정 저장소 403 | 위와 같음 | "Access denied" + GitHub 메시지 |
+| 보고 있는 저장소에 앱 미설치 (404) | 위와 같음 | GitHub 페이지 안에 설치 안내와 링크 (D15) |
+| GitHub 화면 구조 변경 (기준 요소 없음) | PR·코드 화면은 떠 있는 위젯으로 대체 | 화면 오른쪽 아래 위젯 (D14) |
 | 모든 저장소 실패 | `lastError`에 대표 오류 기록 | Popup 하단에 오류 |
 | 네트워크 오류 | 해당 저장소의 이전 상태 유지 | 마지막 갱신 시각이 멈춤 |
 | rate limit 소진 임박 | 리셋 시각까지 폴링 중단 | 남은 한도 표시 |
@@ -667,6 +816,8 @@ sequenceDiagram
 |---|---|---|
 | `lib/progress.ts` | Vitest 단위 테스트 (19개) | 순수 함수라 Chrome 없이 테스트 가능. 진행률은 사용자가 가장 직접 보는 값이고 경계 조건(대기 중 job, 예상 초과, 이력 없음, 실행 중인 step 상한)이 많음 |
 | UI 렌더링 | Chrome API를 대체하는 mock을 넣은 정적 빌드를 브라우저에서 확인 | 실제 계정 없이 레이아웃·상태별 화면 확인 |
+| `lib/page.ts` | Vitest 단위 테스트 (25개) | URL 판별(예약 경로, run 상세, gist 제외), `/`가 들어간 브랜치 경로, PR·브랜치별 run 선택, 워크플로별 최신 run, 저장 형식이 바뀌기 전 데이터 |
+| content script | 테스트용 번들(IIFE)을 만들어 **실제 github.com 페이지**에 mock과 함께 주입 (2026-10-06, vitejs/vite) | 저장소 메인·PR·Actions 목록 삽입 위치, Turbo 이동 시 교체, GitHub가 요소를 지웠을 때 재삽입, XSS 문자열 무해화, 다크 테마를 확인. 실제 설치본 확인은 남음 |
 | `lib/notifications.ts` | Vitest 단위 테스트 (4개) | 알림 ID 생성·해석. re-run 시 ID가 겹치지 않는지, GitHub 외 URL을 거부하는지 확인 |
 | background 폴링·인증 | 실제 GitHub App으로 수동 확인 (**일부 완료**: 2026-10-06 Device Flow 로그인, 저장소 목록, re-run 완료 알림 확인) | Chrome API와 GitHub 응답에 강하게 의존 |
 
@@ -705,6 +856,10 @@ sequenceDiagram
 | 토큰 평문 저장 | 익스텐션 저장소의 한계 | 만료되는 토큰 + 읽기 전용 권한으로 피해 최소화 (D5) |
 | UI가 영어만 지원 | 초기 범위 | `_locales/ko` 추가 예정 |
 | 목록 첫 20개 밖에서 새로 시작된 run은 놓칠 수 있음 | `per_page=20` | 한 저장소에서 20개 이상이 동시에 생기는 경우는 드묾 |
+| fork에서 온 PR은 PR 화면에 run이 연결되지 않음 | API의 `pull_requests`가 fork PR에서는 비어 있음 | 저장소 메인의 "다른 브랜치에서 실행 중"과 Actions 목록에서는 보임 |
+| 페이지 내 바가 GitHub 화면 구조에 의존 | 기준 요소 2개 (D14) | 떠 있는 위젯으로 대체 |
+| Actions의 run 상세 페이지에는 바가 없음 | 범위 선택 (GitHub가 이미 실시간 로그를 보여줌) | — |
+| 탭이 보이지 않으면 페이지 내 바가 갱신되지 않음 | 의도한 설계 (D15) | 탭으로 돌아오면 즉시 다시 연결·갱신 |
 
 ---
 
@@ -716,7 +871,8 @@ sequenceDiagram
 | 높음 | Web Store 제출 자료 (스크린샷, 개인정보처리방침 게시) | D13 |
 | 중간 | 한국어 로케일 (`_locales/ko`, `chrome.i18n`) | — |
 | 중간 | 전이 감지 로직을 순수 함수로 분리하고 단위 테스트 추가 | D9, 8장 |
-| 낮음 | PR 페이지 content script (진행 바 삽입) | D6, D10 |
+| ~~낮음~~ 완료 | ~~PR 페이지 content script (진행 바 삽입)~~ → 2026-10-06 PR·코드·Actions 화면으로 구현 | D14 |
+| 높음 | 실제 설치본으로 페이지 내 바 확인 (private 저장소, 실제 run) | D14, D15 |
 | 낮음 | Firefox 지원 (WXT 이전 검토) | D11 |
 
 ---
@@ -742,3 +898,4 @@ sequenceDiagram
 | 2026-10-05 | 8장 CI 소요 시간 추정치(1분 안팎)를 첫 실행 실측값(약 20초)으로 교체 |
 | 2026-10-06 | D9 알림 ID를 알림마다 고유하게 변경(re-run 시 ID 충돌), 8장에 notifications 테스트와 수동 검증 진행 상황 추가 |
 | 2026-10-06 | D8 진행률에 step 상한 추가(실행 중인 step의 끝을 넘지 않음), 남은 시간 계산 변경, 8장 테스트 수 갱신 |
+| 2026-10-06 | GitHub 페이지 내 진행 바: 목표 G5, D14·D15 추가, D6·D7·D10 변경 기록, 3장 구조도·모듈 표, 5·7·8·9·10장 갱신 |

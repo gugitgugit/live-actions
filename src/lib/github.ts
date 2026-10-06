@@ -3,6 +3,9 @@ import type { ApiJob, ApiRepo, ApiRun, RateLimit } from './types'
 
 const API = 'https://api.github.com'
 
+/** stored in meta.repoErrors; the page shows an install hint when it sees this */
+export const REPO_NOT_FOUND = 'Not found, or the app has no access to this repository'
+
 export class GitHubError extends Error {
   constructor(
     public status: number,

@@ -136,6 +136,10 @@ a:focus-visible {
   font-family: var(--mono);
 }
 
+.icon-wrap {
+  flex: none;
+  display: inline-flex;
+}
 .icon {
   flex: none;
   display: block;
