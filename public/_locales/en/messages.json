@@ -137,6 +137,17 @@
       }
     }
   },
+  "stepsProgress": {
+    "message": "Steps $DONE$/$TOTAL$",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
   "timeLeft": {
     "message": "~$DURATION$ left",
     "placeholders": {

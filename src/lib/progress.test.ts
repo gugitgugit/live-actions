@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeProgress, formatDuration, medianDuration, stepCeiling, stepRatio, summarizeJobs } from './progress'
+import { computeProgress, formatDuration, medianDuration, progressSummary, stepCeiling, stepRatio, summarizeJobs } from './progress'
 import type { ApiJob, ApiRun, JobSummary } from './types'
 
 const job = (over: Partial<JobSummary>): JobSummary => ({
@@ -144,4 +144,31 @@ describe('formatDuration', () => {
     [125_000, '2m 05s'],
     [3_780_000, '1h 3m'],
   ])('%i → %s', (ms, out) => expect(formatDuration(ms)).toBe(out))
+})
+
+describe('progressSummary', () => {
+  it('counts steps instead of a lone job', () => {
+    expect(progressSummary([job({ stepsDone: 4, stepsTotal: 11, currentStep: 'Run npm ci' })])).toBe('Steps 4/11 · Run npm ci')
+  })
+
+  it('counts jobs and the running job steps when one of several runs', () => {
+    const jobs = [
+      job({ id: 1, status: 'completed', stepsDone: 5, stepsTotal: 5 }),
+      job({ id: 2, stepsDone: 3, stepsTotal: 8, currentStep: 'Run tests' }),
+      job({ id: 3, status: 'queued' }),
+    ]
+    expect(progressSummary(jobs)).toBe('Jobs 1/3 · Steps 3/8 · Run tests')
+  })
+
+  it('counts only jobs while several run at once', () => {
+    const jobs = [
+      job({ id: 1, stepsDone: 2, stepsTotal: 8, currentStep: 'Test (node 20)' }),
+      job({ id: 2, stepsDone: 5, stepsTotal: 8, currentStep: 'Test (node 22)' }),
+    ]
+    expect(progressSummary(jobs)).toBe('Jobs 0/2 · Test (node 20)')
+  })
+
+  it('falls back to the job count before steps are reported', () => {
+    expect(progressSummary([job({})])).toBe('Jobs 0/1')
+  })
 })

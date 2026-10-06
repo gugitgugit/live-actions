@@ -3,7 +3,7 @@ import { errorText, type ErrorInfo } from '../lib/errors'
 import { isCounted } from '../lib/filters'
 import { t } from '../lib/i18n'
 import { POPUP_PORT, send } from '../lib/messages'
-import { computeProgress, formatDuration, isActive } from '../lib/progress'
+import { computeProgress, formatDuration, isActive, progressSummary } from '../lib/progress'
 import type { TrackedRun } from '../lib/types'
 import { StatusIcon, toneOf } from '../shared/StatusIcon'
 import { timeAgo, useNow, useStorage } from '../shared/useStorage'
@@ -162,7 +162,6 @@ function ActiveRun({ run, now }: { run: TrackedRun; now: number }) {
     now,
   )
   const tone = toneOf(run.status, run.conclusion)
-  const running = run.jobs.find((j) => j.status === 'in_progress')
   const failing = run.jobs.some((j) => j.conclusion === 'failure')
   const pct = Math.round(p.ratio * 100)
 
@@ -191,7 +190,7 @@ function ActiveRun({ run, now }: { run: TrackedRun; now: number }) {
           <span className="run-step">
             {tone === 'queued'
               ? t('waitingForRunner')
-              : `${t('jobsProgress', p.jobsDone, p.jobsTotal)}${running?.currentStep ? ` · ${running.currentStep}` : ''}`}
+              : progressSummary(run.jobs)}
           </span>
           <span className="run-time">
             {tone === 'queued'

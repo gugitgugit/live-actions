@@ -129,3 +129,24 @@ export function formatDuration(ms: number): string {
   if (m > 0) return t('durationMinutes', m, s.toString().padStart(2, '0'))
   return t('durationSeconds', s)
 }
+
+/**
+ * The text under a progress bar. Counts what is informative for the run's shape:
+ * - one job: its steps ("Steps 4/11"), since "Jobs 0/1" only changes at the very end
+ * - several jobs, one running: jobs and that job's steps ("Jobs 2/5 · Steps 3/8")
+ * - several running at once (a matrix): jobs only; whose steps would be ambiguous
+ * followed by the step running now. Step counts include GitHub's own setup and cleanup
+ * steps, the same ones the progress bar is based on.
+ */
+export function progressSummary(jobs: JobSummary[]): string {
+  const running = jobs.filter((j) => j.status === 'in_progress')
+  const only = running.length === 1 && running[0].stepsTotal > 0 ? running[0] : null
+  const jobCount = t('jobsProgress', jobs.filter((j) => j.status === 'completed').length, jobs.length)
+  const parts = [
+    // a lone job's count says nothing new, unless there is no step count to show instead
+    jobs.length > 1 || !only ? jobCount : null,
+    only ? t('stepsProgress', only.stepsDone, only.stepsTotal) : null,
+    running[0]?.currentStep ?? null,
+  ]
+  return parts.filter(Boolean).join(' · ')
+}
