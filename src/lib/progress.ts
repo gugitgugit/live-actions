@@ -43,6 +43,21 @@ export function stepRatio(jobs: JobSummary[]): number {
   return total / jobs.length
 }
 
+/**
+ * Highest completion the steps allow: a job can be at most at the end of the step
+ * it is running now. Jobs that have not started cap at 0; a running job whose steps
+ * are not reported yet is left unconstrained because there is nothing to go on.
+ */
+export function stepCeiling(jobs: JobSummary[]): number {
+  if (jobs.length === 0) return 0
+  const total = jobs.reduce((acc, job) => {
+    if (job.status === 'completed') return acc + 1
+    if (job.stepsTotal === 0) return acc + (job.status === 'in_progress' ? 1 : 0)
+    return acc + Math.min(1, (job.stepsDone + 1) / job.stepsTotal)
+  }, 0)
+  return total / jobs.length
+}
+
 /** Cap for unfinished runs so the bar never looks done before it is. */
 const MAX_ACTIVE_RATIO = 0.97
 
@@ -71,9 +86,13 @@ export function computeProgress(
   }
 
   // Time is a better signal than step count (one slow step can dominate a run),
-  // so use it when history exists, but never fall behind what the steps say.
+  // so interpolate by time when history exists, but stay within what the steps say:
+  // never behind the finished steps, never past the end of the running step.
+  const floor = stepRatio(jobs)
+  const ceiling = stepCeiling(jobs)
   const byTime = estimateMs ? elapsedMs / estimateMs : 0
-  const ratio = Math.min(MAX_ACTIVE_RATIO, Math.max(byTime, stepRatio(jobs)))
+  const ratio = Math.min(MAX_ACTIVE_RATIO, Math.min(ceiling, Math.max(byTime, floor)))
+  const overtime = estimateMs !== null && elapsedMs > estimateMs
 
   return {
     ratio,
@@ -81,8 +100,11 @@ export function computeProgress(
     jobsTotal: jobs.length,
     elapsedMs,
     estimateMs,
-    remainingMs: estimateMs ? Math.max(0, estimateMs - elapsedMs) : null,
-    overtime: estimateMs !== null && elapsedMs > estimateMs,
+    // When the steps hold the bar back, the clock alone would promise too little time left;
+    // assume the remaining share of the work takes its share of the typical duration.
+    remainingMs:
+      estimateMs === null ? null : overtime ? 0 : Math.max(estimateMs - elapsedMs, estimateMs * (1 - ratio)),
+    overtime,
   }
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeProgress, formatDuration, medianDuration, stepRatio, summarizeJobs } from './progress'
+import { computeProgress, formatDuration, medianDuration, stepCeiling, stepRatio, summarizeJobs } from './progress'
 import type { ApiJob, ApiRun, JobSummary } from './types'
 
 const job = (over: Partial<JobSummary>): JobSummary => ({
@@ -51,12 +51,26 @@ describe('stepRatio', () => {
   })
 })
 
+describe('stepCeiling', () => {
+  it('allows up to the end of the running step', () => {
+    expect(stepCeiling([job({ stepsDone: 3, stepsTotal: 10 })])).toBeCloseTo(0.4)
+  })
+
+  it('does not constrain a running job whose steps are not reported yet', () => {
+    expect(stepCeiling([job({})])).toBe(1)
+  })
+
+  it('caps jobs that have not started at 0', () => {
+    expect(stepCeiling([job({ status: 'completed' }), job({ status: 'queued' })])).toBe(0.5)
+  })
+})
+
 describe('computeProgress', () => {
   const start = '2026-01-01T00:00:00Z'
   const t = (sec: number) => Date.parse(start) + sec * 1000
 
   it('uses elapsed time against the estimate', () => {
-    const p = computeProgress(run(start), [job({ stepsDone: 1, stepsTotal: 10 })], 200_000, t(100))
+    const p = computeProgress(run(start), [job({ stepsDone: 4, stepsTotal: 10 })], 200_000, t(100))
     expect(p.ratio).toBeCloseTo(0.5)
     expect(p.remainingMs).toBe(100_000)
     expect(p.overtime).toBe(false)
@@ -65,6 +79,25 @@ describe('computeProgress', () => {
   it('never falls behind the step ratio', () => {
     const p = computeProgress(run(start), [job({ stepsDone: 8, stepsTotal: 10 })], 200_000, t(20))
     expect(p.ratio).toBeCloseTo(0.8)
+  })
+
+  it('does not run ahead of the step that is still running', () => {
+    // 3 of 10 steps done, the 4th is running: at most 40% even though time says 90%
+    const p = computeProgress(run(start), [job({ stepsDone: 3, stepsTotal: 10 })], 100_000, t(90))
+    expect(p.ratio).toBeCloseTo(0.4)
+    // remaining follows the work left, not the clock
+    expect(p.remainingMs).toBe(60_000)
+    expect(p.overtime).toBe(false)
+  })
+
+  it('holds back for jobs that have not started', () => {
+    const jobs = [job({ stepsDone: 1, stepsTotal: 2 }), job({ status: 'queued' })]
+    const p = computeProgress(run(start), jobs, 100_000, t(90))
+    expect(p.ratio).toBe(0.5)
+  })
+
+  it('stays at 0 before any job exists', () => {
+    expect(computeProgress(run(start), [], 100_000, t(50)).ratio).toBe(0)
   })
 
   it('caps unfinished runs below 100% and flags overtime', () => {
