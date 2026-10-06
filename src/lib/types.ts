@@ -26,6 +26,7 @@ export interface ApiRun {
   display_title: string
   workflow_id: number
   head_branch: string | null
+  head_sha: string
   event: string
   status: ApiRunStatus
   conclusion: ApiConclusion
@@ -36,6 +37,8 @@ export interface ApiRun {
   updated_at: string
   actor?: { login: string } | null
   triggering_actor?: { login: string } | null
+  /** open PRs in this repo whose head matches the run (empty for PRs from forks) */
+  pull_requests?: { number: number }[]
 }
 
 export interface ApiStep {
@@ -65,6 +68,7 @@ export interface ApiRepo {
   private: boolean
   owner: { login: string }
   pushed_at?: string | null
+  default_branch?: string
 }
 
 // ---- Extension state ----
@@ -92,8 +96,10 @@ export type NotifyMode = 'all' | 'failure' | 'none'
 export interface Settings {
   repos: WatchedRepo[]
   notify: NotifyMode
-  /** only track runs triggered by the signed-in user */
+  /** popup, badge and notifications only count runs triggered by the signed-in user */
   onlyMine: boolean
+  /** show progress inside GitHub pages */
+  inPage: boolean
 }
 
 export interface JobSummary {
@@ -126,6 +132,8 @@ export interface TrackedRun {
   workflowName: string
   title: string
   branch: string | null
+  headSha: string
+  prNumbers: number[]
   event: string
   actor: string | null
   htmlUrl: string
@@ -138,6 +146,11 @@ export interface TrackedRun {
   progress: Progress
   /** epoch ms when we first saw it as completed */
   completedAt?: number
+}
+
+export interface RepoInfo {
+  defaultBranch: string | null
+  fetchedAt: number
 }
 
 export interface DurationStat {

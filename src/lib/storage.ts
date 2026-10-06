@@ -1,4 +1,4 @@
-import type { AuthState, DurationStat, Meta, Settings, TrackedRun } from './types'
+import type { AuthState, DurationStat, Meta, RepoInfo, Settings, TrackedRun } from './types'
 
 export interface CacheEntry {
   etag: string
@@ -13,26 +13,35 @@ export interface StorageSchema {
   /** key: `${repo}#${workflowId}` */
   durations: Record<string, DurationStat>
   httpCache: Record<string, CacheEntry>
+  /** repositories viewed on github.com, key: "owner/name" */
+  repoInfo: Record<string, RepoInfo>
   meta: Meta
 }
 
 const defaults: StorageSchema = {
   auth: null,
-  settings: { repos: [], notify: 'all', onlyMine: false },
+  settings: { repos: [], notify: 'all', onlyMine: false, inPage: true },
   runs: {},
   durations: {},
   httpCache: {},
+  repoInfo: {},
   meta: { lastPolledAt: null, lastError: null, repoErrors: {}, rateLimit: null, unseenFailures: 0 },
 }
 
 export type StorageKey = keyof StorageSchema
 
+/** keys holding maps keyed by id, which must not be merged with defaults */
+const RECORD_KEYS: ReadonlySet<StorageKey> = new Set(['runs', 'durations', 'httpCache', 'repoInfo'])
+
 export async function getItem<K extends StorageKey>(key: K): Promise<StorageSchema[K]> {
   const result = await chrome.storage.local.get(key)
-  const value = result[key] as StorageSchema[K] | undefined
+  return withDefaults(key, result[key] as StorageSchema[K] | undefined)
+}
+
+function withDefaults<K extends StorageKey>(key: K, value: StorageSchema[K] | undefined): StorageSchema[K] {
   if (value === undefined) return structuredClone(defaults[key])
   // merge so newly added fields get their defaults after an update
-  if (isPlainObject(defaults[key]) && isPlainObject(value) && key !== 'runs' && key !== 'durations' && key !== 'httpCache') {
+  if (isPlainObject(defaults[key]) && isPlainObject(value) && !RECORD_KEYS.has(key)) {
     return { ...structuredClone(defaults[key]), ...value }
   }
   return value
@@ -57,8 +66,7 @@ export function onItemChanged<K extends StorageKey>(
 ): () => void {
   const listener = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
     if (area !== 'local' || !(key in changes)) return
-    const next = changes[key].newValue as StorageSchema[K] | undefined
-    cb(next === undefined ? structuredClone(defaults[key]) : next)
+    cb(withDefaults(key, changes[key].newValue as StorageSchema[K] | undefined))
   }
   chrome.storage.onChanged.addListener(listener)
   return () => chrome.storage.onChanged.removeListener(listener)

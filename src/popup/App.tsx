@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { isCounted } from '../lib/filters'
 import { POPUP_PORT, send } from '../lib/messages'
 import { computeProgress, formatDuration, isActive } from '../lib/progress'
 import type { TrackedRun } from '../lib/types'
@@ -20,7 +21,8 @@ export function App() {
   }, [])
 
   const { active, recent } = useMemo(() => {
-    const all = Object.values(runs ?? {})
+    // repositories that are only open in a tab are tracked for the page, not listed here
+    const all = settings ? Object.values(runs ?? {}).filter((r) => isCounted(r, settings, auth?.login)) : []
     return {
       active: all
         .filter((r) => isActive(r.status))
@@ -29,9 +31,13 @@ export function App() {
         .filter((r) => !isActive(r.status))
         .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0)),
     }
-  }, [runs])
+  }, [runs, settings, auth])
 
   if (auth === undefined || settings === undefined || meta === undefined) return <div className="popup" />
+
+  const repoErrors = Object.fromEntries(
+    Object.entries(meta.repoErrors).filter(([repo]) => settings.repos.some((r) => r.fullName === repo)),
+  )
 
   const refresh = async () => {
     setRefreshing(true)
@@ -125,11 +131,11 @@ export function App() {
         <footer className="footer">
           {meta.lastError ? (
             <span className="error">{meta.lastError}</span>
-          ) : Object.keys(meta.repoErrors).length > 0 ? (
-            <span className="error" title={Object.entries(meta.repoErrors).map(([r, e]) => `${r}: ${e}`).join('\n')}>
-              {Object.keys(meta.repoErrors).length === 1
-                ? `${Object.keys(meta.repoErrors)[0]} could not be loaded`
-                : `${Object.keys(meta.repoErrors).length} repositories could not be loaded`}
+          ) : Object.keys(repoErrors).length > 0 ? (
+            <span className="error" title={Object.entries(repoErrors).map(([r, e]) => `${r}: ${e}`).join('\n')}>
+              {Object.keys(repoErrors).length === 1
+                ? `${Object.keys(repoErrors)[0]} could not be loaded`
+                : `${Object.keys(repoErrors).length} repositories could not be loaded`}
             </span>
           ) : (
             <span>{meta.lastPolledAt ? `Updated ${timeAgo(meta.lastPolledAt, now)}` : 'Loading…'}</span>
@@ -187,7 +193,9 @@ function ActiveRun({ run, now }: { run: TrackedRun; now: number }) {
               : `Jobs ${p.jobsDone}/${p.jobsTotal}${running?.currentStep ? ` · ${running.currentStep}` : ''}`}
           </span>
           <span className="run-time">
-            {p.remainingMs !== null && !p.overtime
+            {tone === 'queued'
+              ? `queued ${formatDuration(p.elapsedMs)}`
+              : p.remainingMs !== null && !p.overtime
               ? `~${formatDuration(p.remainingMs)} left`
               : p.overtime
                 ? `${formatDuration(p.elapsedMs)} · slower than usual`

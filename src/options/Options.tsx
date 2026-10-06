@@ -384,8 +384,16 @@ function Preferences({ settings }: { settings: Settings }) {
         ))}
       </fieldset>
       <label className="radio">
+        <input type="checkbox" checked={settings.inPage} onChange={(e) => update({ inPage: e.target.checked })} />
+        Show progress on GitHub pages
+      </label>
+      <p className="muted small indent">
+        Adds a live progress bar to pull requests, the code view and the Actions tab of the repository you are
+        viewing — no need to add it above.
+      </p>
+      <label className="radio">
         <input type="checkbox" checked={settings.onlyMine} onChange={(e) => update({ onlyMine: e.target.checked })} />
-        Only show runs I triggered
+        Only count runs I triggered (popup, badge, notifications)
       </label>
     </section>
   )

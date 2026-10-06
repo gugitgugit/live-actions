@@ -1,23 +1,26 @@
 import { needsRefresh, refreshAuth } from '../lib/auth'
-import { GitHubClient, GitHubError, HttpCache } from '../lib/github'
-import { POPUP_PORT, type Message, type TokenResponse } from '../lib/messages'
+import { GitHubClient, GitHubError, HttpCache, REPO_NOT_FOUND } from '../lib/github'
+import { isCounted } from '../lib/filters'
+import { PAGE_PORT, POPUP_PORT, type Message, type PageMessage, type TokenResponse } from '../lib/messages'
 import { runNotificationId, urlFromNotificationId } from '../lib/notifications'
 import { computeProgress, formatDuration, isActive, medianDuration, summarizeJobs } from '../lib/progress'
 import { getItem, setItem, updateItem } from '../lib/storage'
-import type { ApiConclusion, ApiRun, AuthState, DurationStat, Meta, NotifyMode, TrackedRun } from '../lib/types'
+import { FAILED_CONCLUSIONS as FAILED } from '../lib/status'
+import type { ApiRun, AuthState, DurationStat, Meta, NotifyMode, RepoInfo, Settings, TrackedRun } from '../lib/types'
 
 const ALARM = 'poll'
 const IDLE_PERIOD_MIN = 1
 /** chrome.alarms minimum */
 const ACTIVE_PERIOD_MIN = 0.5
-/** faster refresh while the popup is open */
-const POPUP_POLL_MS = 10_000
+/** faster refresh while someone is looking: the popup is open or a visible GitHub page shows progress */
+const FAST_POLL_MS = 10_000
 const KEEP_COMPLETED_MS = 30 * 60_000
+/** per repository */
 const MAX_COMPLETED = 10
 const DURATION_TTL_MS = 6 * 60 * 60_000
+const REPO_INFO_TTL_MS = 24 * 60 * 60_000
 /** Notify for runs that started and finished between two polls, if the polls were close together. */
 const CATCH_UP_WINDOW_MS = 5 * 60_000
-const FAILED: ReadonlySet<ApiConclusion> = new Set(['failure', 'timed_out', 'startup_failure'])
 
 // ---------- auth ----------
 
@@ -79,18 +82,23 @@ function poll(force = false): Promise<void> {
 }
 
 async function doPoll() {
-  const [auth, settings, prevRuns, meta, durations, cacheEntries] = await Promise.all([
+  const [auth, settings, prevRuns, meta, durations, cacheEntries, repoInfo] = await Promise.all([
     getItem('auth'),
     getItem('settings'),
     getItem('runs'),
     getItem('meta'),
     getItem('durations'),
     getItem('httpCache'),
+    getItem('repoInfo'),
   ])
 
-  if (!auth || settings.repos.length === 0) {
+  const watched = new Set(settings.repos.map((r) => r.fullName))
+  const viewed = settings.inPage ? viewedRepos() : new Set<string>()
+  const repos = new Set([...watched, ...viewed])
+
+  if (!auth || repos.size === 0) {
     if (Object.keys(prevRuns).length) await setItem('runs', {})
-    await refreshBadge({}, meta)
+    await refreshBadge({}, meta, settings, auth?.login)
     await schedule(false)
     return
   }
@@ -112,8 +120,10 @@ async function doPoll() {
   let lastError: string | null = null
 
   await Promise.all(
-    settings.repos.map(async ({ fullName }) => {
+    [...repos].map(async (fullName) => {
       try {
+        if (viewed.has(fullName)) await refreshRepoInfo(client, fullName, repoInfo, now)
+
         const byId = new Map((await client.listRuns(fullName)).map((r) => [r.id, r]))
 
         // Runs we were watching that dropped off the first page still need their final state.
@@ -127,7 +137,6 @@ async function doPoll() {
         }
 
         for (const run of byId.values()) {
-          if (settings.onlyMine && auth.login && !isMine(run, auth.login)) continue
           const key = runKey(fullName, run.id)
           const prev = prevRuns[key]
           const active = isActive(run.status)
@@ -153,7 +162,7 @@ async function doPoll() {
           return
         }
         repoErrors[fullName] = describeError(e)
-        // keep what we had so the popup does not flash empty on a transient error
+        // keep what we had so the UI does not flash empty on a transient error
         for (const [key, run] of Object.entries(prevRuns)) {
           if (run.repo === fullName) nextRuns[key] = run
         }
@@ -163,18 +172,21 @@ async function doPoll() {
 
   if (unauthorized) {
     await signOut('Your GitHub session expired or was revoked. Please sign in again.')
-    await refreshBadge({}, meta)
+    await refreshBadge({}, meta, settings, auth.login)
     return
   }
 
-  if (Object.keys(repoErrors).length === settings.repos.length) {
-    lastError = Object.values(repoErrors)[0]
+  const watchedErrors = Object.keys(repoErrors).filter((r) => watched.has(r))
+  if (watched.size > 0 && watchedErrors.length === watched.size) {
+    lastError = repoErrors[watchedErrors[0]]
   }
 
   trimCompleted(nextRuns)
 
   let newFailures = 0
   for (const run of finished) {
+    // repositories that are only open in a tab show their result on the page, without alerts
+    if (!isCounted(run, settings, auth.login)) continue
     if (FAILED.has(run.conclusion)) newFailures++
     notify(run, settings.notify)
   }
@@ -191,12 +203,25 @@ async function doPoll() {
     })),
     setItem('runs', nextRuns),
     setItem('durations', durations),
+    setItem('repoInfo', pruneRepoInfo(repoInfo, now)),
     cache.isDirty ? setItem('httpCache', cache.snapshot()) : Promise.resolve(),
   ])
 
   const hasActive = Object.values(nextRuns).some((r) => isActive(r.status))
-  await refreshBadge(nextRuns, nextMeta)
+  await refreshBadge(nextRuns, nextMeta, settings, auth.login)
   await schedule(hasActive)
+}
+
+/** Default branch of a repository open on github.com, cached for a day. Mutates `repoInfo`. */
+async function refreshRepoInfo(client: GitHubClient, repo: string, repoInfo: Record<string, RepoInfo>, now: number) {
+  const cached = repoInfo[repo]
+  if (cached && now - cached.fetchedAt < REPO_INFO_TTL_MS) return
+  const data = await client.getRepo(repo)
+  repoInfo[repo] = { defaultBranch: data.default_branch ?? null, fetchedAt: now }
+}
+
+function pruneRepoInfo(repoInfo: Record<string, RepoInfo>, now: number): Record<string, RepoInfo> {
+  return Object.fromEntries(Object.entries(repoInfo).filter(([, info]) => now - info.fetchedAt < REPO_INFO_TTL_MS))
 }
 
 async function track(
@@ -217,6 +242,8 @@ async function track(
     workflowName: run.name ?? 'Workflow',
     title: run.display_title,
     branch: run.head_branch,
+    headSha: run.head_sha,
+    prNumbers: (run.pull_requests ?? []).map((pr) => pr.number),
     event: run.event,
     actor: run.triggering_actor?.login ?? run.actor?.login ?? null,
     htmlUrl: run.html_url,
@@ -251,10 +278,15 @@ async function getEstimate(
 }
 
 function trimCompleted(runs: Record<string, TrackedRun>) {
-  const completed = Object.entries(runs)
-    .filter(([, r]) => !isActive(r.status))
-    .sort((a, b) => (b[1].completedAt ?? 0) - (a[1].completedAt ?? 0))
-  for (const [key] of completed.slice(MAX_COMPLETED)) delete runs[key]
+  const byRepo = new Map<string, [string, TrackedRun][]>()
+  for (const entry of Object.entries(runs)) {
+    if (isActive(entry[1].status)) continue
+    byRepo.set(entry[1].repo, [...(byRepo.get(entry[1].repo) ?? []), entry])
+  }
+  for (const completed of byRepo.values()) {
+    completed.sort((a, b) => (b[1].completedAt ?? 0) - (a[1].completedAt ?? 0))
+    for (const [key] of completed.slice(MAX_COMPLETED)) delete runs[key]
+  }
 }
 
 async function schedule(active: boolean) {
@@ -267,8 +299,13 @@ async function schedule(active: boolean) {
 
 // ---------- badge & notifications ----------
 
-async function refreshBadge(runs: Record<string, TrackedRun>, meta: Meta) {
-  const active = Object.values(runs).filter((r) => isActive(r.status)).length
+async function refreshBadge(
+  runs: Record<string, TrackedRun>,
+  meta: Meta,
+  settings: Settings,
+  login: string | undefined,
+) {
+  const active = Object.values(runs).filter((r) => isActive(r.status) && isCounted(r, settings, login)).length
   let text = ''
   let color = '#0969da'
   if (active > 0) {
@@ -341,6 +378,8 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
       poll(true).then(() => sendResponse({ ok: true }))
       return true
     case 'getToken':
+      // only extension pages; content scripts run inside github.com tabs (sender.tab is set)
+      if (sender.tab) return
       getToken().then(
         (token) => sendResponse({ token } satisfies TokenResponse),
         (e: unknown) => sendResponse({ error: describeError(e) } satisfies TokenResponse),
@@ -349,14 +388,57 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
   }
 })
 
+// Someone is looking at progress (popup open, or a visible GitHub tab showing it): poll faster.
+let popupPorts = 0
+const pagePorts = new Map<chrome.runtime.Port, string | null>()
+let fastTimer: ReturnType<typeof setInterval> | null = null
+
+function viewedRepos(): Set<string> {
+  return new Set([...pagePorts.values()].filter((r): r is string => r !== null))
+}
+
+function updateFastPolling() {
+  const wanted = popupPorts > 0 || viewedRepos().size > 0
+  if (wanted && !fastTimer) {
+    fastTimer = setInterval(() => poll(), FAST_POLL_MS)
+  } else if (!wanted && fastTimer) {
+    clearInterval(fastTimer)
+    fastTimer = null
+  }
+}
+
 chrome.runtime.onConnect.addListener((port) => {
-  if (port.name !== POPUP_PORT) return
-  updateItem('meta', (m) => ({ ...m, unseenFailures: 0 })).then(async (meta) => {
-    await refreshBadge(await getItem('runs'), meta)
-  })
-  poll()
-  const timer = setInterval(() => poll(), POPUP_POLL_MS)
-  port.onDisconnect.addListener(() => clearInterval(timer))
+  if (port.sender?.id !== chrome.runtime.id) return
+
+  if (port.name === POPUP_PORT) {
+    popupPorts++
+    Promise.all([updateItem('meta', (m) => ({ ...m, unseenFailures: 0 })), getItem('settings'), getItem('auth')]).then(
+      async ([meta, settings, auth]) => refreshBadge(await getItem('runs'), meta, settings, auth?.login),
+    )
+    updateFastPolling()
+    poll()
+    port.onDisconnect.addListener(() => {
+      popupPorts--
+      updateFastPolling()
+    })
+    return
+  }
+
+  if (port.name === PAGE_PORT) {
+    pagePorts.set(port, null)
+    port.onMessage.addListener((msg: PageMessage) => {
+      if (msg.type !== 'view') return
+      const before = pagePorts.get(port)
+      pagePorts.set(port, msg.repo)
+      updateFastPolling()
+      // a newly opened repository should not wait for the next tick
+      if (msg.repo && msg.repo !== before) poll(true)
+    })
+    port.onDisconnect.addListener(() => {
+      pagePorts.delete(port)
+      updateFastPolling()
+    })
+  }
 })
 
 // ---------- helpers ----------
@@ -365,13 +447,9 @@ function runKey(repo: string, id: number) {
   return `${repo}#${id}`
 }
 
-function isMine(run: ApiRun, login: string) {
-  return run.actor?.login === login || run.triggering_actor?.login === login
-}
-
 function describeError(e: unknown): string {
   if (e instanceof GitHubError) {
-    if (e.status === 404) return 'Not found, or the app has no access to this repository'
+    if (e.status === 404) return REPO_NOT_FOUND
     if (e.status === 403) return `Access denied: ${e.message}`
     return `GitHub error ${e.status}: ${e.message}`
   }
