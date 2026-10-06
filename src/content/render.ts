@@ -24,6 +24,8 @@ export function createShadowHost(id: string, className = ''): HTMLElement {
   const host = document.createElement('div')
   host.id = id
   if (className) host.className = className
+  // inline style so page rules cannot change how the host lays out (`:host` loses to them)
+  host.style.display = 'block'
   const root = host.attachShadow({ mode: 'open' })
   const style = document.createElement('style')
   style.textContent = STYLES

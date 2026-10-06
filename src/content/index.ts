@@ -52,6 +52,7 @@ function alive(): boolean {
 
 function teardown() {
   observer?.disconnect()
+  alignObserver?.disconnect()
   if (ticker) clearInterval(ticker)
   document.getElementById(BANNER_ID)?.remove()
   document.querySelectorAll(`.${ROW_CLASS}`).forEach((n) => n.remove())
@@ -163,9 +164,11 @@ function renderBannerFor(ctx: Extract<PageContext, { kind: 'pr' | 'code' }>, now
   // Pull requests: only the Conversation tab has a merge box; other tabs keep the top spot.
   const slot = ctx.kind === 'pr' ? mergeBoxSlot() : ctx.ref === null ? toolbarSlot() : null
   const anchor = document.querySelector(ANCHOR)
-  host.classList.toggle('inline', !!slot)
-  host.classList.toggle('mergebox', slot?.kind === 'mergebox')
-  host.classList.toggle('floating', !slot && !anchor)
+  // prefixed: GitHub's own utility classes include `.inline { display: inline }`
+  host.classList.toggle('ap-inline', !!slot)
+  host.classList.toggle('ap-mergebox', slot?.kind === 'mergebox')
+  host.classList.toggle('ap-floating', !slot && !anchor)
+  watchAlign(slot?.align ?? null)
   // Match the measured edges rather than copying GitHub's margin classes: the merge box is
   // indented in layers (margin, padding, an absolutely placed icon) that vary by width.
   if (slot?.align) {
@@ -225,6 +228,20 @@ function mergeBoxSlot(): Slot | null {
   const box = document.querySelector(MERGE_BOX)
   if (!box?.parentElement || !reactSettled(box)) return null
   return { parent: box.parentElement, before: box, kind: 'mergebox', align: box.querySelector(MERGE_BOX_BORDER) ?? box }
+}
+
+/**
+ * Re-measure when the element we line up with changes size: GitHub's stylesheets can finish
+ * loading after the first measurement (its padding arrives late) without any DOM mutation.
+ */
+let alignObserver: ResizeObserver | null = null
+let alignTarget: Element | null = null
+function watchAlign(el: Element | null) {
+  if (el === alignTarget) return
+  alignObserver ??= new ResizeObserver(schedule)
+  if (alignTarget) alignObserver.unobserve(alignTarget)
+  if (el) alignObserver.observe(el)
+  alignTarget = el
 }
 
 /**

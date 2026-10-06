@@ -110,12 +110,12 @@ a { color: inherit; text-decoration: none; }
 .list:empty + .others, .list:empty ~ .hint { margin-top: 0; padding: 8px 12px; border: 1px solid var(--ap-border); border-radius: 0 0 6px 6px; }
 
 /* inside GitHub's own columns (repository home, pull request merge box), which already set width and gutters */
-:host(.inline) .banner { max-width: none; margin: 0 0 16px; padding: 0; }
+:host(.ap-inline) .banner { max-width: none; margin: 0 0 16px; padding: 0; }
 /* pull requests: above the merge box, which brings its own top margin */
-:host(.inline.mergebox) .banner { margin: 16px 0 0; }
+:host(.ap-inline.ap-mergebox) .banner { margin: 16px 0 0; }
 
 /* floating fallback when GitHub's layout changed and the anchor is missing */
-:host(.floating) {
+:host(.ap-floating) {
   position: fixed;
   right: 16px;
   bottom: 16px;
@@ -124,7 +124,7 @@ a { color: inherit; text-decoration: none; }
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
   border-radius: 6px;
 }
-:host(.floating) .banner { margin: 0; padding: 0; }
+:host(.ap-floating) .banner { margin: 0; padding: 0; }
 
 /* compact bar inside an Actions list row */
 .rowbar { display: flex; align-items: center; gap: 8px; margin-top: 6px; padding-left: 24px; }
