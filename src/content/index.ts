@@ -21,12 +21,16 @@ const BRANCH_PICKER = '#ref-picker-repos-header-ref-selector'
 const LATEST_COMMIT = '[data-testid="latest-commit"]'
 /** pull request conversation: the merge box with the checks summary */
 const MERGE_BOX = '[data-testid="mergebox-partial"]'
+/** the bordered box inside it; the banner matches its width, like the comment boxes above and below */
+const MERGE_BOX_BORDER = '[data-testid="mergebox-border-container"]'
 
 /** a spot inside GitHub's React tree: `before` is GitHub's element the banner goes in front of */
 interface Slot {
   parent: Element
   before: Element
   kind: 'toolbar' | 'mergebox'
+  /** element whose left and right edges the banner lines up with */
+  align?: Element
 }
 
 type State = Pick<StorageSchema, 'settings' | 'runs' | 'repoInfo' | 'meta' | 'commits'>
@@ -162,10 +166,17 @@ function renderBannerFor(ctx: Extract<PageContext, { kind: 'pr' | 'code' }>, now
   host.classList.toggle('inline', !!slot)
   host.classList.toggle('mergebox', slot?.kind === 'mergebox')
   host.classList.toggle('floating', !slot && !anchor)
-  // line up with the merge box, which is indented to match the timeline's comment bubbles
-  const indent = slot?.kind === 'mergebox' ? getComputedStyle(slot.before) : null
-  host.style.marginLeft = indent?.marginLeft ?? ''
-  host.style.paddingLeft = indent?.paddingLeft ?? ''
+  // Match the measured edges rather than copying GitHub's margin classes: the merge box is
+  // indented in layers (margin, padding, an absolutely placed icon) that vary by width.
+  if (slot?.align) {
+    const outer = slot.parent.getBoundingClientRect()
+    const inner = slot.align.getBoundingClientRect()
+    host.style.marginLeft = `${Math.round(inner.left - outer.left)}px`
+    host.style.marginRight = `${Math.round(outer.right - inner.right)}px`
+  } else {
+    host.style.marginLeft = ''
+    host.style.marginRight = ''
+  }
   if (slot) {
     if (host.parentElement !== slot.parent || host.nextElementSibling !== slot.before) slot.parent.insertBefore(host, slot.before)
   } else if (anchor) {
@@ -213,13 +224,17 @@ function toolbarSlot(): Slot | null {
 function mergeBoxSlot(): Slot | null {
   const box = document.querySelector(MERGE_BOX)
   if (!box?.parentElement || !reactSettled(box)) return null
-  return { parent: box.parentElement, before: box, kind: 'mergebox' }
+  return { parent: box.parentElement, before: box, kind: 'mergebox', align: box.querySelector(MERGE_BOX_BORDER) ?? box }
 }
 
-/** Inserting while React is still hydrating server-rendered markup would make it bail out. */
+/**
+ * Inserting while React is still hydrating server-rendered markup would make it bail out.
+ * GitHub marks some apps with a `loaded` class but not all (it was missing on a directly
+ * opened pull request), so a fully loaded document also counts.
+ */
 function reactSettled(el: Element): boolean {
   const app = el.closest('react-app')
-  return !app || app.classList.contains('loaded')
+  return !app || app.classList.contains('loaded') || document.readyState === 'complete'
 }
 
 /** A compact bar under each running row of the Actions run list. */
@@ -272,6 +287,8 @@ async function start() {
     })
   }
 
+  // alignment is measured, so re-measure when the layout width changes
+  window.addEventListener('resize', schedule)
   document.addEventListener('visibilitychange', () => {
     syncPort()
     schedule()
