@@ -5,6 +5,7 @@ import { isCounted } from '../lib/filters'
 import { PAGE_PORT, POPUP_PORT, type Message, type PageMessage, type TokenResponse } from '../lib/messages'
 import { runNotificationId, urlFromNotificationId } from '../lib/notifications'
 import { computeProgress, formatDuration, isActive, medianDuration, summarizeJobs } from '../lib/progress'
+import { nextPollDelay } from '../lib/schedule'
 import { getItem, setItem, updateItem } from '../lib/storage'
 import { FAILED_CONCLUSIONS as FAILED } from '../lib/status'
 import type { ApiRun, AuthState, CommitInfo, DurationStat, Meta, NotifyMode, RepoInfo, Settings, TrackedRun } from '../lib/types'
@@ -13,8 +14,6 @@ const ALARM = 'poll'
 const IDLE_PERIOD_MIN = 1
 /** chrome.alarms minimum */
 const ACTIVE_PERIOD_MIN = 0.5
-/** faster refresh while someone is looking: the popup is open or a visible GitHub page shows progress */
-const FAST_POLL_MS = 10_000
 const KEEP_COMPLETED_MS = 30 * 60_000
 /** per repository */
 const MAX_COMPLETED = 10
@@ -78,8 +77,29 @@ function poll(force = false): Promise<void> {
     .catch((e) => console.error('[actions-pulse] poll failed', e))
     .finally(() => {
       inflight = null
+      scheduleNextPoll()
     })
   return inflight
+}
+
+/** runs from the latest poll; drives how soon the next poll happens */
+let lastRuns: TrackedRun[] = []
+let nextPollTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Adaptive polling on top of the alarm: every 10 s while someone is watching, every
+ * 2.5 s while a run is about to finish (lib/schedule.ts), otherwise only the alarm.
+ */
+function scheduleNextPoll() {
+  if (nextPollTimer) clearTimeout(nextPollTimer)
+  nextPollTimer = null
+  if (inflight) return // rescheduled when it settles
+  const delay = nextPollDelay(lastRuns, isWatching())
+  if (delay === null) return
+  nextPollTimer = setTimeout(() => {
+    nextPollTimer = null
+    poll()
+  }, delay)
 }
 
 async function doPoll() {
@@ -99,6 +119,7 @@ async function doPoll() {
   const repos = new Set([...watched, ...viewed])
 
   if (!auth || repos.size === 0) {
+    lastRuns = []
     if (Object.keys(prevRuns).length) await setItem('runs', {})
     await refreshBadge({}, meta, settings, auth?.login)
     await schedule(false)
@@ -217,7 +238,8 @@ async function doPoll() {
     cache.isDirty ? setItem('httpCache', cache.snapshot()) : Promise.resolve(),
   ])
 
-  const hasActive = Object.values(nextRuns).some((r) => isActive(r.status))
+  lastRuns = Object.values(nextRuns)
+  const hasActive = lastRuns.some((r) => isActive(r.status))
   await refreshBadge(nextRuns, nextMeta, settings, auth.login)
   await schedule(hasActive)
 }
@@ -401,7 +423,10 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
 // Someone is looking at progress (popup open, or a visible GitHub tab showing it): poll faster.
 let popupPorts = 0
 const pagePorts = new Map<chrome.runtime.Port, { repo: string | null; sha: string | null }>()
-let fastTimer: ReturnType<typeof setInterval> | null = null
+
+function isWatching(): boolean {
+  return popupPorts > 0 || viewedRepos().size > 0
+}
 
 function viewedRepos(): Set<string> {
   return new Set([...pagePorts.values()].map((v) => v.repo).filter((r): r is string => r !== null))
@@ -414,13 +439,7 @@ function viewedCommits(repo: string): Set<string> {
 }
 
 function updateFastPolling() {
-  const wanted = popupPorts > 0 || viewedRepos().size > 0
-  if (wanted && !fastTimer) {
-    fastTimer = setInterval(() => poll(), FAST_POLL_MS)
-  } else if (!wanted && fastTimer) {
-    clearInterval(fastTimer)
-    fastTimer = null
-  }
+  scheduleNextPoll()
 }
 
 chrome.runtime.onConnect.addListener((port) => {

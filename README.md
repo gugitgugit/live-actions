@@ -16,7 +16,7 @@ GitHub Actions 워크플로 진행도를 GitHub 페이지 안과 툴바에서 �
 | 항목 | 구현 |
 |---|---|
 | 인증 | GitHub App + OAuth Device Flow (client secret 불필요), 대안으로 fine-grained PAT |
-| 폴링 | `chrome.alarms` — 실행 중일 때 30초, 유휴 시 1분, 팝업이 열려 있으면 10초 |
+| 폴링 | 적응형 — 끝나기 직전 2.5초, 팝업이 열려 있거나 GitHub 탭이 보이면 10초, 그 외 `chrome.alarms` 30초/1분 |
 | Rate limit | `ETag` 조건부 요청 — `304` 응답은 한도에서 차감되지 않음 |
 | 진행률 | 같은 워크플로의 최근 성공 run 5개 중앙값으로 보간하되 실제 step 진행도를 넘지 않음, 이력이 없으면 step 완료율 |
 | 페이지 내 바 | content script + Shadow DOM, GitHub 테마 변수 사용, 페이지 이동은 DOM 변경 감지로 처리 |
