@@ -4,6 +4,8 @@ import '../shared/theme.css'
 import './options.css'
 import { Options } from './Options'
 
+document.documentElement.lang = chrome.i18n.getUILanguage()
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Options />

@@ -8,6 +8,7 @@ GitHub Actions 워크플로 진행도를 GitHub 페이지 안과 툴바에서 �
 - 툴바 배지: 실행 중 개수, 확인하지 않은 실패는 빨간 `!`
 - 완료/실패 데스크톱 알림 (클릭하면 run 페이지로 이동)
 - 별도 서버 없음 — 토큰은 브라우저 `chrome.storage.local`에만 저장
+- 한국어·영어 지원 (브라우저 언어를 따름)
 
 기술·아키텍처 선택 과정과 근거는 [설계 문서](docs/DESIGN.md)에 정리되어 있습니다.
 
@@ -32,6 +33,7 @@ src/
   popup/                툴바 팝업
   options/              로그인, 저장소 선택, 알림 설정
   content/              github.com 페이지 안 진행 바 (React 없이 DOM API)
+public/_locales/        UI 문구 (en, ko). 문구를 추가할 때는 두 파일에 같은 키를 넣기 (테스트가 검사)
 ```
 
 ## 개발

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { errorText, type ErrorInfo } from '../lib/errors'
 import { isCounted } from '../lib/filters'
+import { t } from '../lib/i18n'
 import { POPUP_PORT, send } from '../lib/messages'
 import { computeProgress, formatDuration, isActive } from '../lib/progress'
 import type { TrackedRun } from '../lib/types'
@@ -52,10 +54,10 @@ export function App() {
     <div className="popup">
       <header className="header">
         <Logo />
-        <h1>Actions Pulse</h1>
+        <h1>{t('extName')}</h1>
         <span className="spacer" />
         {auth && settings.repos.length > 0 && (
-          <button className="btn-icon" onClick={refresh} disabled={refreshing} title="Refresh now" aria-label="Refresh now">
+          <button className="btn-icon" onClick={refresh} disabled={refreshing} title={t('refreshNow')} aria-label={t('refreshNow')}>
             <svg width="16" height="16" viewBox="0 0 16 16" className={refreshing ? 'spinning' : undefined}>
               <path
                 d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3"
@@ -68,7 +70,7 @@ export function App() {
             </svg>
           </button>
         )}
-        <button className="btn-icon" onClick={() => chrome.runtime.openOptionsPage()} title="Settings" aria-label="Settings">
+        <button className="btn-icon" onClick={() => chrome.runtime.openOptionsPage()} title={t('settings')} aria-label={t('settings')}>
           <svg width="16" height="16" viewBox="0 0 16 16">
             <circle cx="8" cy="8" r="2.25" fill="none" stroke="currentColor" strokeWidth="1.5" />
             <path
@@ -83,27 +85,26 @@ export function App() {
 
       {!auth ? (
         <EmptyState
-          title="Connect your GitHub account"
-          body="Sign in to see live progress of your GitHub Actions workflows."
-          action="Sign in with GitHub"
+          title={t('connectTitle')}
+          body={t('connectBody')}
+          action={t('signInWithGitHub')}
           error={meta.lastError}
         />
       ) : settings.repos.length === 0 ? (
         <EmptyState
-          title="Pick repositories to watch"
-          body="Choose which repositories' workflow runs should show up here."
-          action="Choose repositories"
+          title={t('pickReposTitle')}
+          body={t('pickReposBody')}
+          action={t('chooseRepos')}
         />
       ) : (
         <main>
           <section>
             <h2>
-              Running <span className="count">{active.length}</span>
+              {t('running')} <span className="count">{active.length}</span>
             </h2>
             {active.length === 0 ? (
               <p className="quiet">
-                Nothing running across {settings.repos.length}{' '}
-                {settings.repos.length === 1 ? 'repository' : 'repositories'}.
+                {settings.repos.length === 1 ? t('nothingRunningOne') : t('nothingRunningMany', settings.repos.length)}
               </p>
             ) : (
               <ul className="runs">
@@ -116,7 +117,7 @@ export function App() {
 
           {recent.length > 0 && (
             <section>
-              <h2>Recently finished</h2>
+              <h2>{t('recentlyFinished')}</h2>
               <ul className="recent">
                 {recent.map((run) => (
                   <RecentRun key={`${run.repo}#${run.id}`} run={run} now={now} />
@@ -130,18 +131,18 @@ export function App() {
       {auth && settings.repos.length > 0 && (
         <footer className="footer">
           {meta.lastError ? (
-            <span className="error">{meta.lastError}</span>
+            <span className="error">{errorText(meta.lastError)}</span>
           ) : Object.keys(repoErrors).length > 0 ? (
-            <span className="error" title={Object.entries(repoErrors).map(([r, e]) => `${r}: ${e}`).join('\n')}>
+            <span className="error" title={Object.entries(repoErrors).map(([r, e]) => `${r}: ${errorText(e)}`).join('\n')}>
               {Object.keys(repoErrors).length === 1
-                ? `${Object.keys(repoErrors)[0]} could not be loaded`
-                : `${Object.keys(repoErrors).length} repositories could not be loaded`}
+                ? t('repoCouldNotLoad', Object.keys(repoErrors)[0])
+                : t('reposCouldNotLoad', Object.keys(repoErrors).length)}
             </span>
           ) : (
-            <span>{meta.lastPolledAt ? `Updated ${timeAgo(meta.lastPolledAt, now)}` : 'Loading…'}</span>
+            <span>{meta.lastPolledAt ? t('updatedAgo', timeAgo(meta.lastPolledAt, now)) : t('loading')}</span>
           )}
           {meta.rateLimit && meta.rateLimit.remaining < meta.rateLimit.limit * 0.2 && (
-            <span title="GitHub API requests left this hour">
+            <span title={t('apiRequestsLeft')}>
               API {meta.rateLimit.remaining}/{meta.rateLimit.limit}
             </span>
           )}
@@ -182,23 +183,23 @@ function ActiveRun({ run, now }: { run: TrackedRun; now: number }) {
           aria-valuenow={pct}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-label={`${run.workflowName} progress`}
+          aria-label={t('runProgressAria', run.workflowName)}
         >
           <div className="bar-fill" style={{ width: `${Math.max(pct, tone === 'queued' ? 0 : 3)}%` }} />
         </div>
         <div className="run-stats">
           <span className="run-step">
             {tone === 'queued'
-              ? 'Waiting for a runner…'
-              : `Jobs ${p.jobsDone}/${p.jobsTotal}${running?.currentStep ? ` · ${running.currentStep}` : ''}`}
+              ? t('waitingForRunner')
+              : `${t('jobsProgress', p.jobsDone, p.jobsTotal)}${running?.currentStep ? ` · ${running.currentStep}` : ''}`}
           </span>
           <span className="run-time">
             {tone === 'queued'
-              ? `queued ${formatDuration(p.elapsedMs)}`
+              ? t('queuedFor', formatDuration(p.elapsedMs))
               : p.remainingMs !== null && !p.overtime
-              ? `~${formatDuration(p.remainingMs)} left`
+              ? t('timeLeft', formatDuration(p.remainingMs))
               : p.overtime
-                ? `${formatDuration(p.elapsedMs)} · slower than usual`
+                ? t('slowerThanUsual', formatDuration(p.elapsedMs))
                 : formatDuration(p.elapsedMs)}
           </span>
         </div>
@@ -206,7 +207,7 @@ function ActiveRun({ run, now }: { run: TrackedRun; now: number }) {
       {run.jobs.length > 0 && (
         <>
           <button className="jobs-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
-            {open ? 'Hide jobs' : `Show ${run.jobs.length} ${run.jobs.length === 1 ? 'job' : 'jobs'}`}
+            {open ? t('hideJobs') : run.jobs.length === 1 ? t('showJobsOne') : t('showJobsMany', run.jobs.length)}
           </button>
           {open && (
             <ul className="jobs">
@@ -252,13 +253,23 @@ function RecentRun({ run, now }: { run: TrackedRun; now: number }) {
   )
 }
 
-function EmptyState({ title, body, action, error }: { title: string; body: string; action: string; error?: string | null }) {
+function EmptyState({
+  title,
+  body,
+  action,
+  error,
+}: {
+  title: string
+  body: string
+  action: string
+  error?: ErrorInfo | string | null
+}) {
   return (
     <div className="empty">
       <Logo size={36} />
       <h2>{title}</h2>
       <p className="muted">{body}</p>
-      {error && <p className="error">{error}</p>}
+      {error && <p className="error">{errorText(error)}</p>}
       <button className="btn btn-primary" onClick={() => chrome.runtime.openOptionsPage()}>
         {action}
       </button>

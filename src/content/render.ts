@@ -1,4 +1,5 @@
 import { timeAgo } from '../lib/format'
+import { t, tAround, type MessageKey } from '../lib/i18n'
 import { computeProgress, formatDuration, isActive } from '../lib/progress'
 import { toneOf } from '../lib/status'
 import type { TrackedRun } from '../lib/types'
@@ -9,15 +10,15 @@ import { STYLES } from './styles'
 // textContent. Only constant markup (icons) goes through innerHTML: this code runs inside
 // github.com, and run titles are written by whoever pushed the commit.
 
-const RESULT_LABEL: Record<string, string> = {
-  success: 'Passed',
-  failure: 'Failed',
-  timed_out: 'Timed out',
-  startup_failure: 'Startup failure',
-  cancelled: 'Cancelled',
-  skipped: 'Skipped',
-  action_required: 'Action required',
-  neutral: 'Neutral',
+const RESULT_LABEL: Record<string, MessageKey> = {
+  success: 'resultSuccess',
+  failure: 'resultFailure',
+  timed_out: 'resultTimedOut',
+  startup_failure: 'resultStartupFailure',
+  cancelled: 'resultCancelled',
+  skipped: 'resultSkipped',
+  action_required: 'resultActionRequired',
+  neutral: 'resultNeutral',
 }
 
 export function createShadowHost(id: string, className = ''): HTMLElement {
@@ -66,16 +67,16 @@ function stepText(run: TrackedRun, now: number): { step: string; time: string; p
   const running = run.jobs.find((j) => j.status === 'in_progress')
   const queued = toneOf(run.status, run.conclusion) === 'queued'
   // nothing has started yet, so a percentage or time left would be made up
-  if (queued) return { pct: null, failing: false, step: 'Waiting for a runner…', time: `queued ${formatDuration(p.elapsedMs)}` }
+  if (queued) return { pct: null, failing: false, step: t('waitingForRunner'), time: t('queuedFor', formatDuration(p.elapsedMs)) }
   return {
     pct: Math.round(p.ratio * 100),
     failing: run.jobs.some((j) => j.conclusion === 'failure'),
-    step: `Jobs ${p.jobsDone}/${p.jobsTotal}${running?.currentStep ? ` · ${running.currentStep}` : ''}`,
+    step: `${t('jobsProgress', p.jobsDone, p.jobsTotal)}${running?.currentStep ? ` · ${running.currentStep}` : ''}`,
     time:
       p.remainingMs !== null && !p.overtime
-        ? `~${formatDuration(p.remainingMs)} left`
+        ? t('timeLeft', formatDuration(p.remainingMs))
         : p.overtime
-          ? `${formatDuration(p.elapsedMs)} · slower than usual`
+          ? t('slowerThanUsual', formatDuration(p.elapsedMs))
           : formatDuration(p.elapsedMs),
   }
 }
@@ -115,10 +116,10 @@ export function renderBanner(root: ShadowRoot, model: BannerModel, now: number) 
   let banner = root.querySelector<HTMLElement>('.banner')
   if (!banner) {
     banner = el('section', 'banner')
-    banner.setAttribute('aria-label', 'GitHub Actions progress')
+    banner.setAttribute('aria-label', t('bannerLabel'))
     const head = el('div', 'head')
-    head.append(el('span', 'brand', 'Actions'), el('span', 'spacer'))
-    const all = el('a', 'all', 'View all runs')
+    head.append(el('span', 'brand', t('bannerTitle')), el('span', 'spacer'))
+    const all = el('a', 'all', t('viewAllRuns'))
     head.append(all)
     banner.append(head, el('ul', 'list'), el('a', 'others'), el('p', 'hint'))
     root.append(banner)
@@ -142,16 +143,17 @@ export function renderBanner(root: ShadowRoot, model: BannerModel, now: number) 
   const others = banner.querySelector('.others') as HTMLAnchorElement
   others.hidden = model.othersActive === 0
   others.href = model.actionsUrl
-  setText(others, `${model.othersActive} more running on other branches →`)
+  setText(others, t('othersRunning', model.othersActive))
 
   const hint = banner.querySelector('.hint') as HTMLParagraphElement
   hint.hidden = !model.installUrl
   if (model.installUrl && !hint.firstChild) {
-    const link = el('a', '', 'install the Actions Pulse app on it')
+    const link = el('a', '', t('installHintLink'))
     link.href = model.installUrl
     link.target = '_blank'
     link.rel = 'noreferrer'
-    hint.append(document.createTextNode("Actions Pulse can't see this repository's runs. To track them, "), link, '.')
+    const [before, after] = tAround('installHint')
+    hint.append(document.createTextNode(before), link, document.createTextNode(after))
   }
 }
 
@@ -163,7 +165,7 @@ function createBannerRow(key: string): HTMLLIElement {
   link.rel = 'noreferrer'
   const top = el('div', 'top')
   top.append(el('span', 'icon'), el('span', 'workflow'), el('span', 'title'), el('span', 'meta'))
-  link.append(top, createBar('Workflow progress'))
+  link.append(top, createBar(t('workflowProgressLabel')))
   row.append(link)
   return row
 }
@@ -179,16 +181,16 @@ function updateBannerRow(row: HTMLLIElement, run: TrackedRun, now: number) {
   const meta = row.querySelector('.meta')!
 
   if (isActive(run.status)) {
-    const t = stepText(run, now)
+    const info = stepText(run, now)
     bar.hidden = false
-    updateBar(bar, t.pct, t.failing)
-    setText(meta, `${t.step} · ${t.time}`)
+    updateBar(bar, info.pct, info.failing)
+    setText(meta, `${info.step} · ${info.time}`)
     row.classList.remove('done')
   } else {
     bar.hidden = true
-    const result = RESULT_LABEL[run.conclusion ?? ''] ?? 'Finished'
+    const result = t(RESULT_LABEL[run.conclusion ?? ''] ?? 'resultFinished')
     const when = run.completedAt ? ` · ${timeAgo(run.completedAt, now)}` : ''
-    setText(meta, `${result} in ${formatDuration(run.progress.elapsedMs)}${when}`)
+    setText(meta, `${t('resultIn', result, formatDuration(run.progress.elapsedMs))}${when}`)
     row.classList.add('done')
   }
 }
@@ -199,10 +201,10 @@ export function renderRowBar(root: ShadowRoot, run: TrackedRun, now: number) {
   let wrap = root.querySelector<HTMLElement>('.rowbar')
   if (!wrap) {
     wrap = el('div', 'rowbar')
-    wrap.append(createBar('Run progress'), el('span', 'meta'))
+    wrap.append(createBar(t('runProgressLabel')), el('span', 'meta'))
     root.append(wrap)
   }
-  const t = stepText(run, now)
-  updateBar(wrap.querySelector('.bar') as HTMLElement, t.pct, t.failing)
-  setText(wrap.querySelector('.meta')!, [t.pct === null ? null : `${t.pct}%`, t.step, t.time].filter(Boolean).join(' · '))
+  const info = stepText(run, now)
+  updateBar(wrap.querySelector('.bar') as HTMLElement, info.pct, info.failing)
+  setText(wrap.querySelector('.meta')!, [info.pct === null ? null : `${info.pct}%`, info.step, info.time].filter(Boolean).join(' · '))
 }

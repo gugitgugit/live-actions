@@ -1,0 +1,515 @@
+{
+  "extName": {
+    "message": "Actions Pulse"
+  },
+  "extDescription": {
+    "message": "Watch GitHub Actions workflow progress at a glance — live progress bars inside GitHub, a badge and completion notifications."
+  },
+  "durationHours": {
+    "message": "$H$h $M$m",
+    "placeholders": {
+      "h": {
+        "content": "$1"
+      },
+      "m": {
+        "content": "$2"
+      }
+    }
+  },
+  "durationMinutes": {
+    "message": "$M$m $S$s",
+    "placeholders": {
+      "m": {
+        "content": "$1"
+      },
+      "s": {
+        "content": "$2"
+      }
+    }
+  },
+  "durationSeconds": {
+    "message": "$S$s",
+    "placeholders": {
+      "s": {
+        "content": "$1"
+      }
+    }
+  },
+  "timeJustNow": {
+    "message": "just now"
+  },
+  "timeSecondsAgo": {
+    "message": "$N$s ago",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "timeMinutesAgo": {
+    "message": "$N$m ago",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "timeHoursAgo": {
+    "message": "$N$h ago",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "toneRunning": {
+    "message": "In progress"
+  },
+  "toneQueued": {
+    "message": "Queued"
+  },
+  "toneSuccess": {
+    "message": "Succeeded"
+  },
+  "toneFailure": {
+    "message": "Failed"
+  },
+  "toneNeutral": {
+    "message": "Cancelled or skipped"
+  },
+  "resultSuccess": {
+    "message": "Passed"
+  },
+  "resultFailure": {
+    "message": "Failed"
+  },
+  "resultTimedOut": {
+    "message": "Timed out"
+  },
+  "resultStartupFailure": {
+    "message": "Startup failure"
+  },
+  "resultCancelled": {
+    "message": "Cancelled"
+  },
+  "resultSkipped": {
+    "message": "Skipped"
+  },
+  "resultActionRequired": {
+    "message": "Action required"
+  },
+  "resultNeutral": {
+    "message": "Neutral"
+  },
+  "resultFinished": {
+    "message": "Finished"
+  },
+  "resultIn": {
+    "message": "$RESULT$ in $DURATION$",
+    "placeholders": {
+      "result": {
+        "content": "$1"
+      },
+      "duration": {
+        "content": "$2"
+      }
+    }
+  },
+  "waitingForRunner": {
+    "message": "Waiting for a runner…"
+  },
+  "queuedFor": {
+    "message": "queued $DURATION$",
+    "placeholders": {
+      "duration": {
+        "content": "$1"
+      }
+    }
+  },
+  "jobsProgress": {
+    "message": "Jobs $DONE$/$TOTAL$",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "timeLeft": {
+    "message": "~$DURATION$ left",
+    "placeholders": {
+      "duration": {
+        "content": "$1"
+      }
+    }
+  },
+  "slowerThanUsual": {
+    "message": "$DURATION$ · slower than usual",
+    "placeholders": {
+      "duration": {
+        "content": "$1"
+      }
+    }
+  },
+  "runProgressAria": {
+    "message": "$NAME$ progress",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "bannerLabel": {
+    "message": "GitHub Actions progress"
+  },
+  "bannerTitle": {
+    "message": "Actions"
+  },
+  "viewAllRuns": {
+    "message": "View all runs"
+  },
+  "othersRunning": {
+    "message": "$COUNT$ more running on other branches →",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "installHint": {
+    "message": "Actions Pulse can't see this repository's runs. To track them, $LINK$.",
+    "placeholders": {
+      "link": {
+        "content": "$1"
+      }
+    }
+  },
+  "installHintLink": {
+    "message": "install the Actions Pulse app on it"
+  },
+  "workflowProgressLabel": {
+    "message": "Workflow progress"
+  },
+  "runProgressLabel": {
+    "message": "Run progress"
+  },
+  "notifPassed": {
+    "message": "✅ Passed"
+  },
+  "notifFailed": {
+    "message": "❌ Failed"
+  },
+  "notifTimedOut": {
+    "message": "⏱ Timed out"
+  },
+  "notifStartupFailure": {
+    "message": "❌ Startup failure"
+  },
+  "notifCancelled": {
+    "message": "⊘ Cancelled"
+  },
+  "notifActionRequired": {
+    "message": "⚠️ Action required"
+  },
+  "notifFinished": {
+    "message": "Finished"
+  },
+  "badgeTitleRunning": {
+    "message": "Actions Pulse — $COUNT$ running",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "errorNotFound": {
+    "message": "Not found, or the app has no access to this repository"
+  },
+  "errorForbidden": {
+    "message": "Access denied: $DETAIL$",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
+  },
+  "errorHttp": {
+    "message": "GitHub error $STATUS$: $DETAIL$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      },
+      "detail": {
+        "content": "$2"
+      }
+    }
+  },
+  "errorNetwork": {
+    "message": "Network error"
+  },
+  "errorSessionExpired": {
+    "message": "Your GitHub session expired or was revoked. Please sign in again."
+  },
+  "refreshNow": {
+    "message": "Refresh now"
+  },
+  "settings": {
+    "message": "Settings"
+  },
+  "connectTitle": {
+    "message": "Connect your GitHub account"
+  },
+  "connectBody": {
+    "message": "Sign in to see live progress of your GitHub Actions workflows."
+  },
+  "signInWithGitHub": {
+    "message": "Sign in with GitHub"
+  },
+  "pickReposTitle": {
+    "message": "Pick repositories to watch"
+  },
+  "pickReposBody": {
+    "message": "Choose which repositories' workflow runs should show up here."
+  },
+  "chooseRepos": {
+    "message": "Choose repositories"
+  },
+  "running": {
+    "message": "Running"
+  },
+  "nothingRunningOne": {
+    "message": "Nothing running across 1 repository."
+  },
+  "nothingRunningMany": {
+    "message": "Nothing running across $COUNT$ repositories.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "recentlyFinished": {
+    "message": "Recently finished"
+  },
+  "repoCouldNotLoad": {
+    "message": "$REPO$ could not be loaded",
+    "placeholders": {
+      "repo": {
+        "content": "$1"
+      }
+    }
+  },
+  "reposCouldNotLoad": {
+    "message": "$COUNT$ repositories could not be loaded",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "updatedAgo": {
+    "message": "Updated $AGO$",
+    "placeholders": {
+      "ago": {
+        "content": "$1"
+      }
+    }
+  },
+  "loading": {
+    "message": "Loading…"
+  },
+  "apiRequestsLeft": {
+    "message": "GitHub API requests left this hour"
+  },
+  "hideJobs": {
+    "message": "Hide jobs"
+  },
+  "showJobsOne": {
+    "message": "Show 1 job"
+  },
+  "showJobsMany": {
+    "message": "Show $COUNT$ jobs",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsPageTitle": {
+    "message": "Actions Pulse Settings"
+  },
+  "tagline": {
+    "message": "Live progress for your GitHub Actions workflows."
+  },
+  "privacyFooter": {
+    "message": "Your token is stored only in this browser and is sent only to GitHub. Actions Pulse has no server and collects no data."
+  },
+  "account": {
+    "message": "Account"
+  },
+  "signedInAs": {
+    "message": "Signed in as $LOGIN$",
+    "placeholders": {
+      "login": {
+        "content": "$1"
+      }
+    }
+  },
+  "authAppKind": {
+    "message": "GitHub App · read-only access to Actions"
+  },
+  "authPatKind": {
+    "message": "Personal access token"
+  },
+  "signOut": {
+    "message": "Sign out"
+  },
+  "noClientId": {
+    "message": "This build has no GitHub App client ID ($ENV$), so only personal access tokens are available.",
+    "placeholders": {
+      "env": {
+        "content": "$1"
+      }
+    }
+  },
+  "deviceEnterCode": {
+    "message": "Enter this code on GitHub to authorize Actions Pulse:"
+  },
+  "deviceCopied": {
+    "message": "Copied — open GitHub again"
+  },
+  "deviceCopyOpen": {
+    "message": "Copy code & open GitHub"
+  },
+  "cancel": {
+    "message": "Cancel"
+  },
+  "deviceWaiting": {
+    "message": "Waiting for authorization… Keep this tab open."
+  },
+  "deviceIntro": {
+    "message": "Sign in with the Actions Pulse GitHub App. It only asks for read access to Actions and repository metadata."
+  },
+  "tokenRejected": {
+    "message": "GitHub rejected this token."
+  },
+  "patSummary": {
+    "message": "Use a personal access token instead"
+  },
+  "patHelp": {
+    "message": "Create a $LINK$ with Actions: Read-only and Metadata: Read-only for the repositories you want to watch.",
+    "placeholders": {
+      "link": {
+        "content": "$1"
+      }
+    }
+  },
+  "patHelpLink": {
+    "message": "fine-grained token"
+  },
+  "saveToken": {
+    "message": "Save token"
+  },
+  "reposTitle": {
+    "message": "Repositories"
+  },
+  "reposWatched": {
+    "message": "$COUNT$ watched",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "reposMissing": {
+    "message": "Missing a repository?"
+  },
+  "installMoreRepos": {
+    "message": "Install the app on more repositories"
+  },
+  "reloadList": {
+    "message": "Reload the list"
+  },
+  "filterRepos": {
+    "message": "Filter repositories"
+  },
+  "reposLoadError": {
+    "message": "Could not load repositories: $DETAIL$",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
+  },
+  "reposLoading": {
+    "message": "Loading repositories…"
+  },
+  "reposNoMatch": {
+    "message": "No matching repositories."
+  },
+  "reposNone": {
+    "message": "No repositories found."
+  },
+  "private": {
+    "message": "Private"
+  },
+  "addByNamePlaceholder": {
+    "message": "Add by name: owner/repo"
+  },
+  "addByNameAria": {
+    "message": "Add repository by name"
+  },
+  "add": {
+    "message": "Add"
+  },
+  "ownerNameFormat": {
+    "message": "Use the owner/name format, e.g. vercel/next.js"
+  },
+  "notFoundApp": {
+    "message": "Not found. Is the app installed on this repository?"
+  },
+  "notFoundPat": {
+    "message": "Not found, or your token has no access to it."
+  },
+  "preferences": {
+    "message": "Preferences"
+  },
+  "desktopNotifications": {
+    "message": "Desktop notifications"
+  },
+  "notifyAll": {
+    "message": "Every finished run"
+  },
+  "notifyFailure": {
+    "message": "Failures only"
+  },
+  "notifyNone": {
+    "message": "Never"
+  },
+  "inPageLabel": {
+    "message": "Show progress on GitHub pages"
+  },
+  "inPageHelp": {
+    "message": "Adds a live progress bar to pull requests, the code view and the Actions tab of the repository you are viewing — no need to add it above."
+  },
+  "onlyMineLabel": {
+    "message": "Only count runs I triggered (popup, badge, notifications)"
+  },
+  "authCancelled": {
+    "message": "Authorization was cancelled on GitHub."
+  },
+  "authExpired": {
+    "message": "The code expired. Please try again."
+  },
+  "authDeviceDisabled": {
+    "message": "Device flow is disabled in the GitHub App settings."
+  },
+  "authBadClientId": {
+    "message": "The GitHub App client ID is invalid."
+  },
+  "authNetwork": {
+    "message": "Network error. Check your connection and try again."
+  }
+}

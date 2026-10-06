@@ -1,5 +1,7 @@
 import { needsRefresh, refreshAuth } from '../lib/auth'
-import { GitHubClient, GitHubError, HttpCache, REPO_NOT_FOUND } from '../lib/github'
+import { errorText, type ErrorInfo } from '../lib/errors'
+import { GitHubClient, GitHubError, HttpCache } from '../lib/github'
+import { t, type MessageKey } from '../lib/i18n'
 import { latestPerWorkflowEvent, rollup } from '../lib/commit'
 import { isCounted } from '../lib/filters'
 import { PAGE_PORT, POPUP_PORT, type Message, type PageMessage, type TokenResponse } from '../lib/messages'
@@ -48,7 +50,7 @@ async function getValidAuth(): Promise<AuthState> {
 
 const getToken = async () => (await getValidAuth()).accessToken
 
-async function signOut(reason: string) {
+async function signOut(reason: ErrorInfo) {
   await Promise.all([
     setItem('auth', null),
     setItem('runs', {}),
@@ -135,12 +137,12 @@ async function doPoll() {
   const cache = new HttpCache(cacheEntries)
   const client = new GitHubClient({ getToken, cache })
   const nextRuns: Record<string, TrackedRun> = {}
-  const repoErrors: Record<string, string> = {}
+  const repoErrors: Record<string, ErrorInfo> = {}
   const finished: TrackedRun[] = []
   const lastPolledAt = meta.lastPolledAt
   const catchUp = lastPolledAt !== null && now - lastPolledAt < CATCH_UP_WINDOW_MS
   let unauthorized = false
-  let lastError: string | null = null
+  let lastError: ErrorInfo | null = null
 
   await Promise.all(
     [...repos].map(async (fullName) => {
@@ -200,7 +202,7 @@ async function doPoll() {
   )
 
   if (unauthorized) {
-    await signOut('Your GitHub session expired or was revoked. Please sign in again.')
+    await signOut({ code: 'session_expired' })
     await refreshBadge({}, meta, settings, auth.login)
     return
   }
@@ -350,17 +352,17 @@ async function refreshBadge(
     chrome.action.setBadgeText({ text }),
     chrome.action.setBadgeBackgroundColor({ color }),
     chrome.action.setBadgeTextColor({ color: '#ffffff' }),
-    chrome.action.setTitle({ title: active ? `Actions Pulse — ${active} running` : 'Actions Pulse' }),
+    chrome.action.setTitle({ title: active ? t('badgeTitleRunning', active) : t('extName') }),
   ])
 }
 
-const CONCLUSION_TITLE: Record<string, string> = {
-  success: '✅ Passed',
-  failure: '❌ Failed',
-  timed_out: '⏱ Timed out',
-  startup_failure: '❌ Startup failure',
-  cancelled: '⊘ Cancelled',
-  action_required: '⚠️ Action required',
+const CONCLUSION_TITLE: Record<string, MessageKey> = {
+  success: 'notifPassed',
+  failure: 'notifFailed',
+  timed_out: 'notifTimedOut',
+  startup_failure: 'notifStartupFailure',
+  cancelled: 'notifCancelled',
+  action_required: 'notifActionRequired',
 }
 
 function notify(run: TrackedRun, mode: NotifyMode) {
@@ -370,7 +372,7 @@ function notify(run: TrackedRun, mode: NotifyMode) {
   chrome.notifications.create(runNotificationId(run.htmlUrl), {
     type: 'basic',
     iconUrl: chrome.runtime.getURL('icons/icon-128.png'),
-    title: `${CONCLUSION_TITLE[run.conclusion ?? ''] ?? 'Finished'} · ${run.workflowName}`,
+    title: `${t(CONCLUSION_TITLE[run.conclusion ?? ''] ?? 'notifFinished')} · ${run.workflowName}`,
     message: run.title,
     contextMessage: parts.join(' · '),
     priority: FAILED.has(run.conclusion) ? 2 : 0,
@@ -414,7 +416,7 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
       if (sender.tab) return
       getToken().then(
         (token) => sendResponse({ token } satisfies TokenResponse),
-        (e: unknown) => sendResponse({ error: describeError(e) } satisfies TokenResponse),
+        (e: unknown) => sendResponse({ error: errorText(describeError(e)) } satisfies TokenResponse),
       )
       return true
   }
@@ -510,12 +512,13 @@ function runKey(repo: string, id: number) {
   return `${repo}#${id}`
 }
 
-function describeError(e: unknown): string {
+function describeError(e: unknown): ErrorInfo {
   if (e instanceof GitHubError) {
-    if (e.status === 404) return REPO_NOT_FOUND
-    if (e.status === 403) return `Access denied: ${e.message}`
-    return `GitHub error ${e.status}: ${e.message}`
+    if (e.status === 401) return { code: 'session_expired' }
+    if (e.status === 404) return { code: 'not_found' }
+    if (e.status === 403) return { code: 'forbidden', detail: e.message }
+    return { code: 'http', status: e.status, detail: e.message }
   }
-  if (e instanceof TypeError) return 'Network error'
-  return e instanceof Error ? e.message : String(e)
+  if (e instanceof TypeError) return { code: 'network' }
+  return { code: 'unknown', detail: e instanceof Error ? e.message : String(e) }
 }

@@ -1,3 +1,5 @@
+import type { ErrorInfo } from './errors'
+
 // ---- GitHub REST API (only the fields we use) ----
 
 export type ApiRunStatus =
@@ -173,8 +175,9 @@ export interface RateLimit {
 
 export interface Meta {
   lastPolledAt: number | null
-  lastError: string | null
-  repoErrors: Record<string, string>
+  /** plain strings come from versions before errors were stored as codes */
+  lastError: ErrorInfo | string | null
+  repoErrors: Record<string, ErrorInfo | string>
   rateLimit: RateLimit | null
   unseenFailures: number
 }

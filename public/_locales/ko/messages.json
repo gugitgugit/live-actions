@@ -1,0 +1,515 @@
+{
+  "extName": {
+    "message": "Actions Pulse"
+  },
+  "extDescription": {
+    "message": "GitHub Actions 워크플로 진행 상황을 한눈에 — GitHub 화면 안 실시간 진행 바, 배지, 완료 알림."
+  },
+  "durationHours": {
+    "message": "$H$시간 $M$분",
+    "placeholders": {
+      "h": {
+        "content": "$1"
+      },
+      "m": {
+        "content": "$2"
+      }
+    }
+  },
+  "durationMinutes": {
+    "message": "$M$분 $S$초",
+    "placeholders": {
+      "m": {
+        "content": "$1"
+      },
+      "s": {
+        "content": "$2"
+      }
+    }
+  },
+  "durationSeconds": {
+    "message": "$S$초",
+    "placeholders": {
+      "s": {
+        "content": "$1"
+      }
+    }
+  },
+  "timeJustNow": {
+    "message": "방금"
+  },
+  "timeSecondsAgo": {
+    "message": "$N$초 전",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "timeMinutesAgo": {
+    "message": "$N$분 전",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "timeHoursAgo": {
+    "message": "$N$시간 전",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "toneRunning": {
+    "message": "진행 중"
+  },
+  "toneQueued": {
+    "message": "대기 중"
+  },
+  "toneSuccess": {
+    "message": "성공"
+  },
+  "toneFailure": {
+    "message": "실패"
+  },
+  "toneNeutral": {
+    "message": "취소 또는 건너뜀"
+  },
+  "resultSuccess": {
+    "message": "성공"
+  },
+  "resultFailure": {
+    "message": "실패"
+  },
+  "resultTimedOut": {
+    "message": "시간 초과"
+  },
+  "resultStartupFailure": {
+    "message": "시작 실패"
+  },
+  "resultCancelled": {
+    "message": "취소됨"
+  },
+  "resultSkipped": {
+    "message": "건너뜀"
+  },
+  "resultActionRequired": {
+    "message": "조치 필요"
+  },
+  "resultNeutral": {
+    "message": "중립"
+  },
+  "resultFinished": {
+    "message": "완료"
+  },
+  "resultIn": {
+    "message": "$RESULT$ · $DURATION$",
+    "placeholders": {
+      "result": {
+        "content": "$1"
+      },
+      "duration": {
+        "content": "$2"
+      }
+    }
+  },
+  "waitingForRunner": {
+    "message": "러너를 기다리는 중…"
+  },
+  "queuedFor": {
+    "message": "$DURATION$째 대기 중",
+    "placeholders": {
+      "duration": {
+        "content": "$1"
+      }
+    }
+  },
+  "jobsProgress": {
+    "message": "작업 $DONE$/$TOTAL$",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "timeLeft": {
+    "message": "약 $DURATION$ 남음",
+    "placeholders": {
+      "duration": {
+        "content": "$1"
+      }
+    }
+  },
+  "slowerThanUsual": {
+    "message": "$DURATION$ · 평소보다 느림",
+    "placeholders": {
+      "duration": {
+        "content": "$1"
+      }
+    }
+  },
+  "runProgressAria": {
+    "message": "$NAME$ 진행률",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "bannerLabel": {
+    "message": "GitHub Actions 진행 상황"
+  },
+  "bannerTitle": {
+    "message": "Actions"
+  },
+  "viewAllRuns": {
+    "message": "모든 실행 보기"
+  },
+  "othersRunning": {
+    "message": "다른 브랜치에서 $COUNT$개 실행 중 →",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "installHint": {
+    "message": "Actions Pulse가 이 저장소의 실행을 볼 수 없어요. 추적하려면 $LINK$.",
+    "placeholders": {
+      "link": {
+        "content": "$1"
+      }
+    }
+  },
+  "installHintLink": {
+    "message": "이 저장소에 Actions Pulse 앱을 설치하세요"
+  },
+  "workflowProgressLabel": {
+    "message": "워크플로 진행률"
+  },
+  "runProgressLabel": {
+    "message": "실행 진행률"
+  },
+  "notifPassed": {
+    "message": "✅ 성공"
+  },
+  "notifFailed": {
+    "message": "❌ 실패"
+  },
+  "notifTimedOut": {
+    "message": "⏱ 시간 초과"
+  },
+  "notifStartupFailure": {
+    "message": "❌ 시작 실패"
+  },
+  "notifCancelled": {
+    "message": "⊘ 취소됨"
+  },
+  "notifActionRequired": {
+    "message": "⚠️ 조치 필요"
+  },
+  "notifFinished": {
+    "message": "완료"
+  },
+  "badgeTitleRunning": {
+    "message": "Actions Pulse — $COUNT$개 실행 중",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "errorNotFound": {
+    "message": "찾을 수 없거나 앱이 이 저장소에 접근할 수 없어요"
+  },
+  "errorForbidden": {
+    "message": "접근이 거부됐어요: $DETAIL$",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
+  },
+  "errorHttp": {
+    "message": "GitHub 오류 $STATUS$: $DETAIL$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      },
+      "detail": {
+        "content": "$2"
+      }
+    }
+  },
+  "errorNetwork": {
+    "message": "네트워크 오류"
+  },
+  "errorSessionExpired": {
+    "message": "GitHub 로그인이 만료되었거나 취소되었어요. 다시 로그인해 주세요."
+  },
+  "refreshNow": {
+    "message": "지금 새로고침"
+  },
+  "settings": {
+    "message": "설정"
+  },
+  "connectTitle": {
+    "message": "GitHub 계정을 연결하세요"
+  },
+  "connectBody": {
+    "message": "로그인하면 GitHub Actions 워크플로 진행 상황을 실시간으로 볼 수 있어요."
+  },
+  "signInWithGitHub": {
+    "message": "GitHub로 로그인"
+  },
+  "pickReposTitle": {
+    "message": "지켜볼 저장소를 고르세요"
+  },
+  "pickReposBody": {
+    "message": "여기에 표시할 워크플로 실행의 저장소를 선택하세요."
+  },
+  "chooseRepos": {
+    "message": "저장소 선택"
+  },
+  "running": {
+    "message": "실행 중"
+  },
+  "nothingRunningOne": {
+    "message": "저장소 1개에서 실행 중인 작업이 없어요."
+  },
+  "nothingRunningMany": {
+    "message": "저장소 $COUNT$개에서 실행 중인 작업이 없어요.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "recentlyFinished": {
+    "message": "최근 완료"
+  },
+  "repoCouldNotLoad": {
+    "message": "$REPO$을(를) 불러오지 못했어요",
+    "placeholders": {
+      "repo": {
+        "content": "$1"
+      }
+    }
+  },
+  "reposCouldNotLoad": {
+    "message": "저장소 $COUNT$개를 불러오지 못했어요",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "updatedAgo": {
+    "message": "업데이트: $AGO$",
+    "placeholders": {
+      "ago": {
+        "content": "$1"
+      }
+    }
+  },
+  "loading": {
+    "message": "불러오는 중…"
+  },
+  "apiRequestsLeft": {
+    "message": "이번 시간에 남은 GitHub API 요청 수"
+  },
+  "hideJobs": {
+    "message": "작업 숨기기"
+  },
+  "showJobsOne": {
+    "message": "작업 1개 보기"
+  },
+  "showJobsMany": {
+    "message": "작업 $COUNT$개 보기",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsPageTitle": {
+    "message": "Actions Pulse 설정"
+  },
+  "tagline": {
+    "message": "GitHub Actions 워크플로 진행 상황을 실시간으로."
+  },
+  "privacyFooter": {
+    "message": "토큰은 이 브라우저에만 저장되고 GitHub에만 전송돼요. Actions Pulse는 서버가 없고 어떤 데이터도 수집하지 않아요."
+  },
+  "account": {
+    "message": "계정"
+  },
+  "signedInAs": {
+    "message": "$LOGIN$ 계정으로 로그인됨",
+    "placeholders": {
+      "login": {
+        "content": "$1"
+      }
+    }
+  },
+  "authAppKind": {
+    "message": "GitHub 앱 · Actions 읽기 전용 권한"
+  },
+  "authPatKind": {
+    "message": "개인 액세스 토큰"
+  },
+  "signOut": {
+    "message": "로그아웃"
+  },
+  "noClientId": {
+    "message": "이 빌드에는 GitHub 앱 client ID($ENV$)가 없어서 개인 액세스 토큰만 쓸 수 있어요.",
+    "placeholders": {
+      "env": {
+        "content": "$1"
+      }
+    }
+  },
+  "deviceEnterCode": {
+    "message": "GitHub에서 이 코드를 입력해 Actions Pulse를 승인하세요:"
+  },
+  "deviceCopied": {
+    "message": "복사됨 — GitHub 다시 열기"
+  },
+  "deviceCopyOpen": {
+    "message": "코드 복사하고 GitHub 열기"
+  },
+  "cancel": {
+    "message": "취소"
+  },
+  "deviceWaiting": {
+    "message": "승인을 기다리는 중… 이 탭을 열어 두세요."
+  },
+  "deviceIntro": {
+    "message": "Actions Pulse GitHub 앱으로 로그인하세요. Actions와 저장소 메타데이터 읽기 권한만 요청해요."
+  },
+  "tokenRejected": {
+    "message": "GitHub에서 이 토큰을 거부했어요."
+  },
+  "patSummary": {
+    "message": "대신 개인 액세스 토큰 사용"
+  },
+  "patHelp": {
+    "message": "지켜볼 저장소에 Actions: Read-only, Metadata: Read-only 권한을 준 $LINK$을 만드세요.",
+    "placeholders": {
+      "link": {
+        "content": "$1"
+      }
+    }
+  },
+  "patHelpLink": {
+    "message": "세분화된 토큰(fine-grained token)"
+  },
+  "saveToken": {
+    "message": "토큰 저장"
+  },
+  "reposTitle": {
+    "message": "저장소"
+  },
+  "reposWatched": {
+    "message": "$COUNT$개 지켜보는 중",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "reposMissing": {
+    "message": "찾는 저장소가 없나요?"
+  },
+  "installMoreRepos": {
+    "message": "더 많은 저장소에 앱 설치"
+  },
+  "reloadList": {
+    "message": "목록 새로고침"
+  },
+  "filterRepos": {
+    "message": "저장소 검색"
+  },
+  "reposLoadError": {
+    "message": "저장소 목록을 불러오지 못했어요: $DETAIL$",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
+  },
+  "reposLoading": {
+    "message": "저장소를 불러오는 중…"
+  },
+  "reposNoMatch": {
+    "message": "일치하는 저장소가 없어요."
+  },
+  "reposNone": {
+    "message": "저장소가 없어요."
+  },
+  "private": {
+    "message": "비공개"
+  },
+  "addByNamePlaceholder": {
+    "message": "이름으로 추가: owner/repo"
+  },
+  "addByNameAria": {
+    "message": "이름으로 저장소 추가"
+  },
+  "add": {
+    "message": "추가"
+  },
+  "ownerNameFormat": {
+    "message": "owner/name 형식으로 입력하세요. 예: vercel/next.js"
+  },
+  "notFoundApp": {
+    "message": "찾을 수 없어요. 이 저장소에 앱이 설치되어 있나요?"
+  },
+  "notFoundPat": {
+    "message": "찾을 수 없거나 토큰에 접근 권한이 없어요."
+  },
+  "preferences": {
+    "message": "환경설정"
+  },
+  "desktopNotifications": {
+    "message": "데스크톱 알림"
+  },
+  "notifyAll": {
+    "message": "끝난 실행 모두"
+  },
+  "notifyFailure": {
+    "message": "실패만"
+  },
+  "notifyNone": {
+    "message": "받지 않음"
+  },
+  "inPageLabel": {
+    "message": "GitHub 페이지에 진행 상황 표시"
+  },
+  "inPageHelp": {
+    "message": "보고 있는 저장소의 PR, 코드 화면, Actions 탭에 실시간 진행 바를 붙여요. 위 목록에 추가하지 않아도 돼요."
+  },
+  "onlyMineLabel": {
+    "message": "내가 실행한 run만 집계 (팝업, 배지, 알림)"
+  },
+  "authCancelled": {
+    "message": "GitHub에서 승인이 취소됐어요."
+  },
+  "authExpired": {
+    "message": "코드가 만료됐어요. 다시 시도해 주세요."
+  },
+  "authDeviceDisabled": {
+    "message": "GitHub 앱 설정에서 Device Flow가 꺼져 있어요."
+  },
+  "authBadClientId": {
+    "message": "GitHub 앱 client ID가 올바르지 않아요."
+  },
+  "authNetwork": {
+    "message": "네트워크 오류예요. 연결을 확인하고 다시 시도해 주세요."
+  }
+}

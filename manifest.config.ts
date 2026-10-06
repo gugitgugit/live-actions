@@ -10,8 +10,10 @@ const icons = {
 
 export default defineManifest({
   manifest_version: 3,
-  name: 'Actions Pulse',
-  description: 'Watch GitHub Actions workflow progress at a glance — live progress bars, a badge and completion notifications.',
+  // localized from public/_locales/<lang>/messages.json; English when the browser language is not available
+  name: '__MSG_extName__',
+  default_locale: 'en',
+  description: '__MSG_extDescription__',
   version: pkg.version,
   icons,
   action: {
