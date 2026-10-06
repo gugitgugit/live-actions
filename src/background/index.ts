@@ -1,6 +1,7 @@
 import { needsRefresh, refreshAuth } from '../lib/auth'
 import { GitHubClient, GitHubError, HttpCache } from '../lib/github'
 import { POPUP_PORT, type Message, type TokenResponse } from '../lib/messages'
+import { runNotificationId, urlFromNotificationId } from '../lib/notifications'
 import { computeProgress, formatDuration, isActive, medianDuration, summarizeJobs } from '../lib/progress'
 import { getItem, setItem, updateItem } from '../lib/storage'
 import type { ApiConclusion, ApiRun, AuthState, DurationStat, Meta, NotifyMode, TrackedRun } from '../lib/types'
@@ -297,8 +298,7 @@ function notify(run: TrackedRun, mode: NotifyMode) {
   if (mode === 'none') return
   if (mode === 'failure' && !FAILED.has(run.conclusion)) return
   const parts = [run.repo, run.branch, formatDuration(run.progress.elapsedMs)].filter(Boolean)
-  // the id carries the URL so the click handler needs no extra state
-  chrome.notifications.create(`run|${run.htmlUrl}`, {
+  chrome.notifications.create(runNotificationId(run.htmlUrl), {
     type: 'basic',
     iconUrl: chrome.runtime.getURL('icons/icon-128.png'),
     title: `${CONCLUSION_TITLE[run.conclusion ?? ''] ?? 'Finished'} · ${run.workflowName}`,
@@ -309,8 +309,8 @@ function notify(run: TrackedRun, mode: NotifyMode) {
 }
 
 chrome.notifications.onClicked.addListener((id) => {
-  const [kind, url] = id.split('|')
-  if (kind === 'run' && url?.startsWith('https://github.com/')) chrome.tabs.create({ url })
+  const url = urlFromNotificationId(id)
+  if (url) chrome.tabs.create({ url })
   chrome.notifications.clear(id)
 })
 
