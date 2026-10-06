@@ -19,6 +19,19 @@ const ANCHOR = '#repo-content-pjax-container'
 /** code pages: the branch picker in the toolbar and the latest-commit box at the top of the file list */
 const BRANCH_PICKER = '#ref-picker-repos-header-ref-selector'
 const LATEST_COMMIT = '[data-testid="latest-commit"]'
+/** pull request conversation: the merge box with the checks summary */
+const MERGE_BOX = '[data-testid="mergebox-partial"]'
+/** the bordered box inside it; the banner matches its width, like the comment boxes above and below */
+const MERGE_BOX_BORDER = '[data-testid="mergebox-border-container"]'
+
+/** a spot inside GitHub's React tree: `before` is GitHub's element the banner goes in front of */
+interface Slot {
+  parent: Element
+  before: Element
+  kind: 'toolbar' | 'mergebox'
+  /** element whose left and right edges the banner lines up with */
+  align?: Element
+}
 
 type State = Pick<StorageSchema, 'settings' | 'runs' | 'repoInfo' | 'meta' | 'commits'>
 let state: State | null = null
@@ -39,6 +52,7 @@ function alive(): boolean {
 
 function teardown() {
   observer?.disconnect()
+  alignObserver?.disconnect()
   if (ticker) clearInterval(ticker)
   document.getElementById(BANNER_ID)?.remove()
   document.querySelectorAll(`.${ROW_CLASS}`).forEach((n) => n.remove())
@@ -146,11 +160,26 @@ function renderBannerFor(ctx: Extract<PageContext, { kind: 'pr' | 'code' }>, now
 
   let host = document.getElementById(BANNER_ID)
   if (!host) host = createShadowHost(BANNER_ID)
-  // repository home only: /tree/ and /blob/ pages put the branch picker in a side panel
-  const slot = ctx.kind === 'code' && ctx.ref === null ? toolbarSlot() : null
+  // repository home only: /tree/ and /blob/ pages put the branch picker in a side panel.
+  // Pull requests: only the Conversation tab has a merge box; other tabs keep the top spot.
+  const slot = ctx.kind === 'pr' ? mergeBoxSlot() : ctx.ref === null ? toolbarSlot() : null
   const anchor = document.querySelector(ANCHOR)
-  host.classList.toggle('inline', !!slot)
-  host.classList.toggle('floating', !slot && !anchor)
+  // prefixed: GitHub's own utility classes include `.inline { display: inline }`
+  host.classList.toggle('ap-inline', !!slot)
+  host.classList.toggle('ap-mergebox', slot?.kind === 'mergebox')
+  host.classList.toggle('ap-floating', !slot && !anchor)
+  watchAlign(slot?.align ?? null)
+  // Match the measured edges rather than copying GitHub's margin classes: the merge box is
+  // indented in layers (margin, padding, an absolutely placed icon) that vary by width.
+  if (slot?.align) {
+    const outer = slot.parent.getBoundingClientRect()
+    const inner = slot.align.getBoundingClientRect()
+    host.style.marginLeft = `${Math.round(inner.left - outer.left)}px`
+    host.style.marginRight = `${Math.round(outer.right - inner.right)}px`
+  } else {
+    host.style.marginLeft = ''
+    host.style.marginRight = ''
+  }
   if (slot) {
     if (host.parentElement !== slot.parent || host.nextElementSibling !== slot.before) slot.parent.insertBefore(host, slot.before)
   } else if (anchor) {
@@ -175,22 +204,54 @@ function renderBannerFor(ctx: Extract<PageContext, { kind: 'pr' | 'code' }>, now
  * nearest common ancestor of the branch picker and the latest-commit box that holds the
  * latter is the file list, and the banner goes right before it.
  */
-function toolbarSlot(): { parent: Element; before: Element } | null {
+function toolbarSlot(): Slot | null {
   const picker = document.querySelector(BRANCH_PICKER)
   const latest = document.querySelector(LATEST_COMMIT)
   if (!picker || !latest) return null
   let common = latest.parentElement
   while (common && !common.contains(picker)) common = common.parentElement
   if (!common) return null
-  // inserting while React is still hydrating server-rendered markup would make it bail out
-  const app = common.closest('react-app')
-  if (app && !app.classList.contains('loaded')) return null
+  if (!reactSettled(common)) return null
   const before = [...common.children].find((c) => c.contains(latest))
   const toolbar = [...common.children].find((c) => c.contains(picker))
   if (!before || !toolbar) return null
   // only a vertical stack (toolbar above the list); in a side-by-side layout the banner would become a column
   if (toolbar.getBoundingClientRect().bottom > before.getBoundingClientRect().top + 1) return null
-  return { parent: common, before }
+  return { parent: common, before, kind: 'toolbar' }
+}
+
+/**
+ * Pull request Conversation tab: right above the merge box, where the checks are listed.
+ * Same rules as the toolbar slot: a sibling only, never touching GitHub's nodes.
+ */
+function mergeBoxSlot(): Slot | null {
+  const box = document.querySelector(MERGE_BOX)
+  if (!box?.parentElement || !reactSettled(box)) return null
+  return { parent: box.parentElement, before: box, kind: 'mergebox', align: box.querySelector(MERGE_BOX_BORDER) ?? box }
+}
+
+/**
+ * Re-measure when the element we line up with changes size: GitHub's stylesheets can finish
+ * loading after the first measurement (its padding arrives late) without any DOM mutation.
+ */
+let alignObserver: ResizeObserver | null = null
+let alignTarget: Element | null = null
+function watchAlign(el: Element | null) {
+  if (el === alignTarget) return
+  alignObserver ??= new ResizeObserver(schedule)
+  if (alignTarget) alignObserver.unobserve(alignTarget)
+  if (el) alignObserver.observe(el)
+  alignTarget = el
+}
+
+/**
+ * Inserting while React is still hydrating server-rendered markup would make it bail out.
+ * GitHub marks some apps with a `loaded` class but not all (it was missing on a directly
+ * opened pull request), so a fully loaded document also counts.
+ */
+function reactSettled(el: Element): boolean {
+  const app = el.closest('react-app')
+  return !app || app.classList.contains('loaded') || document.readyState === 'complete'
 }
 
 /** A compact bar under each running row of the Actions run list. */
@@ -243,6 +304,8 @@ async function start() {
     })
   }
 
+  // alignment is measured, so re-measure when the layout width changes
+  window.addEventListener('resize', schedule)
   document.addEventListener('visibilitychange', () => {
     syncPort()
     schedule()
