@@ -19,7 +19,7 @@ GitHub Actions 워크플로 진행도를 GitHub 페이지 안과 툴바에서 �
 | 인증 | GitHub App + OAuth Device Flow (client secret 불필요), 대안으로 fine-grained PAT |
 | 폴링 | 적응형 — 끝나기 직전 2.5초, 팝업이 열려 있거나 GitHub 탭이 보이면 10초, 그 외 `chrome.alarms` 30초/1분 |
 | Rate limit | `ETag` 조건부 요청 — `304` 응답은 한도에서 차감되지 않음 |
-| 진행률 | 같은 워크플로의 최근 성공 run 5개 중앙값으로 보간하되 실제 step 진행도를 넘지 않음, 이력이 없으면 step 완료율 |
+| 남은 시간·진행률 | 같은 워크플로의 최근 성공 run 5개에서 job·step별 소요 시간을 구해 각 job이 끝날 시각을 예측 (job 순서도 이력에서 추정, 러너 대기 시간 제외). 이력이 없으면 step 완료율 |
 | 페이지 내 바 | content script + Shadow DOM, GitHub 테마 변수 사용, 페이지 이동은 DOM 변경 감지로 처리 |
 
 ```
@@ -27,7 +27,8 @@ src/
   background/index.ts   폴링, 상태 전이 감지, 배지, 알림, 토큰 갱신(단일 소유)
   lib/auth.ts           Device Flow, refresh
   lib/github.ts         REST 클라이언트 + ETag 캐시
-  lib/progress.ts       진행률/예상 시간 계산 (단위 테스트 있음)
+  lib/progress.ts       진행률 계산 (단위 테스트 있음)
+  lib/estimate.ts       job·step별 이력으로 남은 시간 예측 (단위 테스트 있음)
   lib/page.ts           GitHub URL 판별, 페이지별 run 선택 (단위 테스트 있음)
   lib/storage.ts        타입이 지정된 chrome.storage 래퍼
   popup/                툴바 팝업

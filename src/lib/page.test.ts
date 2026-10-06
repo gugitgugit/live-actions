@@ -57,7 +57,7 @@ const run = (over: Partial<TrackedRun>): TrackedRun =>
     startedAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
     jobs: [],
-    progress: { ratio: 0, jobsDone: 0, jobsTotal: 0, elapsedMs: 0, estimateMs: null, remainingMs: null, overtime: false },
+    progress: { ratio: 0, jobsDone: 0, jobsTotal: 0, elapsedMs: 0, estimateMs: null, remainingMs: null, overtime: false, overdueMs: 0 },
     ...over,
   }) as TrackedRun
 

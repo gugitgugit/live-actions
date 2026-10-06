@@ -6,11 +6,12 @@ import { latestPerWorkflowEvent, rollup } from '../lib/commit'
 import { isCounted } from '../lib/filters'
 import { PAGE_PORT, POPUP_PORT, type Message, type PageMessage, type TokenResponse } from '../lib/messages'
 import { runNotificationId, urlFromNotificationId } from '../lib/notifications'
-import { computeProgress, formatDuration, isActive, medianDuration, summarizeJobs } from '../lib/progress'
+import { buildHistory } from '../lib/estimate'
+import { computeProgress, formatDuration, isActive, summarizeJobs } from '../lib/progress'
 import { nextPollDelay } from '../lib/schedule'
 import { getItem, setItem, updateItem } from '../lib/storage'
 import { FAILED_CONCLUSIONS as FAILED } from '../lib/status'
-import type { ApiRun, AuthState, CommitInfo, DurationStat, Meta, NotifyMode, RepoInfo, Settings, TrackedRun } from '../lib/types'
+import type { ApiRun, AuthState, CommitInfo, DurationStat, Meta, NotifyMode, RepoInfo, Settings, TrackedRun, WorkflowHistory } from '../lib/types'
 
 const ALARM = 'poll'
 const IDLE_PERIOD_MIN = 1
@@ -265,9 +266,9 @@ async function track(
   durations: Record<string, DurationStat>,
   now: number,
 ): Promise<TrackedRun> {
-  const [jobs, estimateMs] = await Promise.all([
+  const [jobs, history] = await Promise.all([
     client.listJobs(repo, run.id).then(summarizeJobs),
-    getEstimate(client, repo, run.workflow_id, durations, now),
+    getHistory(client, repo, run.workflow_id, durations, now),
   ])
   return {
     id: run.id,
@@ -287,27 +288,35 @@ async function track(
     startedAt: run.run_started_at ?? run.created_at,
     updatedAt: run.updated_at,
     jobs,
-    progress: computeProgress(run, jobs, estimateMs, now),
+    history,
+    fetchedAt: now,
+    progress: computeProgress(run, jobs, history, now),
   }
 }
 
-/** Typical duration of a workflow, cached for a few hours. Mutates `durations`. */
-async function getEstimate(
+/**
+ * How recent successful runs of a workflow went, job by job and step by step, cached for a
+ * few hours. Costs one jobs request per sampled run on a cache miss. Mutates `durations`.
+ */
+async function getHistory(
   client: GitHubClient,
   repo: string,
   workflowId: number,
   durations: Record<string, DurationStat>,
   now: number,
-): Promise<number | null> {
+): Promise<WorkflowHistory | null> {
   const key = `${repo}#${workflowId}`
   const cached = durations[key]
-  if (cached && now - cached.fetchedAt < DURATION_TTL_MS) return cached.medianMs
+  // entries from before the per-step estimate have no `history` and are refetched
+  if (cached?.history !== undefined && now - cached.fetchedAt < DURATION_TTL_MS) return cached.history
   try {
-    const medianMs = medianDuration(await client.listRecentSuccessfulRuns(repo, workflowId))
-    durations[key] = { medianMs, fetchedAt: now }
-    return medianMs
+    const runs = await client.listRecentSuccessfulRuns(repo, workflowId)
+    const samples = await Promise.all(runs.map(async (run) => ({ run, jobs: await client.listJobs(repo, run.id) })))
+    const history = buildHistory(samples)
+    durations[key] = { history, fetchedAt: now }
+    return history
   } catch {
-    return cached?.medianMs ?? null
+    return cached?.history ?? null
   }
 }
 
