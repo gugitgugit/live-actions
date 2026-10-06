@@ -6,8 +6,13 @@ export const POPUP_PORT = 'popup'
 /** content script on github.com; tells the background which repository the tab shows */
 export const PAGE_PORT = 'page'
 
-/** `sha`: the commit whose status badge the page shows (code pages), so its full Actions state can be fetched */
-export type PageMessage = { type: 'view'; repo: string | null; sha: string | null }
+/**
+ * `view`: which repository the tab shows; `sha` is the commit whose status badge it shows (code
+ * pages), so its full Actions state can be fetched.
+ * `poke`: GitHub just updated the page on its own (a new commit or a change in the checks), so
+ * there is probably something new to fetch right now.
+ */
+export type PageMessage = { type: 'view'; repo: string | null; sha: string | null } | { type: 'poke' }
 
 export function send<T = unknown>(message: Message): Promise<T> {
   return chrome.runtime.sendMessage(message)

@@ -462,6 +462,7 @@ chrome.runtime.onConnect.addListener((port) => {
   if (port.name === PAGE_PORT) {
     pagePorts.set(port, { repo: null, sha: null })
     port.onMessage.addListener((msg: PageMessage) => {
+      if (msg.type === 'poke') return pokePoll()
       if (msg.type !== 'view') return
       const before = pagePorts.get(port)
       const sha = msg.sha && /^[0-9a-f]{40}$/.test(msg.sha) ? msg.sha : null
@@ -476,6 +477,32 @@ chrome.runtime.onConnect.addListener((port) => {
     })
   }
 })
+
+// GitHub pushes updates to an open pull request over its own WebSocket; the content script
+// turns those into pokes. Poll right away, then once more shortly after in case the API lags
+// behind GitHub's page by a moment, never more often than POKE_MIN_INTERVAL_MS.
+const POKE_MIN_INTERVAL_MS = 3_000
+let lastPokeAt = 0
+let pokeTimer: ReturnType<typeof setTimeout> | null = null
+let pokeFollowUp: ReturnType<typeof setTimeout> | null = null
+
+function pokePoll() {
+  const wait = lastPokeAt + POKE_MIN_INTERVAL_MS - Date.now()
+  if (wait > 0) {
+    pokeTimer ??= setTimeout(() => {
+      pokeTimer = null
+      pokePoll()
+    }, wait)
+    return
+  }
+  lastPokeAt = Date.now()
+  poll(true)
+  if (pokeFollowUp) clearTimeout(pokeFollowUp)
+  pokeFollowUp = setTimeout(() => {
+    pokeFollowUp = null
+    poll(true)
+  }, POKE_MIN_INTERVAL_MS)
+}
 
 // ---------- helpers ----------
 

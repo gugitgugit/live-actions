@@ -23,6 +23,8 @@ const LATEST_COMMIT = '[data-testid="latest-commit"]'
 const MERGE_BOX = '[data-testid="mergebox-partial"]'
 /** the bordered box inside it; the banner matches its width, like the comment boxes above and below */
 const MERGE_BOX_BORDER = '[data-testid="mergebox-border-container"]'
+/** commit links in a pull request's timeline */
+const COMMIT_PATH = /\/(?:pull\/\d+\/commits|commit)\/([0-9a-f]{40})/
 
 /** a spot inside GitHub's React tree: `before` is GitHub's element the banner goes in front of */
 interface Slot {
@@ -39,6 +41,8 @@ let ctx: PageContext | null = null
 let href = ''
 /** commit in the latest-commit box (code pages); it renders after navigation, so it is re-read on every update */
 let sha: string | null = null
+/** what GitHub currently shows on a pull request page, see prFingerprint */
+let fingerprint: string | null = null
 let port: chrome.runtime.Port | null = null
 let sent: string | undefined
 let ticker: ReturnType<typeof setInterval> | null = null
@@ -90,6 +94,23 @@ function syncPort() {
   }
 }
 
+/**
+ * A cheap summary of the parts of a pull request page that GitHub updates live when CI moves:
+ * the newest commit in the timeline (a push) and the merge box headings (checks appearing or
+ * changing state). Only read, never written; our own banner lives in a shadow root and is
+ * not part of it.
+ */
+function prFingerprint(): string {
+  let lastCommit = ''
+  for (const a of document.querySelectorAll<HTMLAnchorElement>('a[href*="/commit"]')) {
+    const m = COMMIT_PATH.exec(a.pathname)
+    if (m) lastCommit = m[1]
+  }
+  const box = document.querySelector(MERGE_BOX_BORDER)
+  const headings = box ? [...box.querySelectorAll('h3, h4')].map((h) => h.textContent?.trim()).join('|') : ''
+  return `${lastCommit}#${headings}`
+}
+
 // ---------- rendering ----------
 
 function schedule() {
@@ -106,7 +127,14 @@ function update() {
   if (location.href !== href) {
     href = location.href
     ctx = parsePage(href)
+    fingerprint = null
     syncPort()
+  }
+  if (ctx?.kind === 'pr') {
+    const next = prFingerprint()
+    // GitHub updated the page by itself: a run probably just started or changed state
+    if (fingerprint !== null && next !== fingerprint) port?.postMessage({ type: 'poke' } satisfies PageMessage)
+    fingerprint = next
   }
   const nextSha = ctx?.kind === 'code' ? readLatestCommitSha() : null
   if (nextSha !== sha) {
