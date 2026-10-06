@@ -160,9 +160,11 @@ function renderBannerFor(ctx: Extract<PageContext, { kind: 'pr' | 'code' }>, now
 
   let host = document.getElementById(BANNER_ID)
   if (!host) host = createShadowHost(BANNER_ID)
-  // repository home only: /tree/ and /blob/ pages put the branch picker in a side panel.
-  // Pull requests: only the Conversation tab has a merge box; other tabs keep the top spot.
-  const slot = ctx.kind === 'pr' ? mergeBoxSlot() : ctx.ref === null ? toolbarSlot() : null
+  // Code pages: the banner only exists on the repository home and a branch's home (see
+  // runsForPage), which share the toolbar layout; the vertical check in toolbarSlot guards
+  // against the side-panel layout of folder pages. Pull requests: only the Conversation tab
+  // has a merge box; other tabs keep the top spot.
+  const slot = ctx.kind === 'pr' ? mergeBoxSlot() : toolbarSlot()
   const anchor = document.querySelector(ANCHOR)
   // prefixed: GitHub's own utility classes include `.inline { display: inline }`
   host.classList.toggle('ap-inline', !!slot)
@@ -198,7 +200,8 @@ function renderBannerFor(ctx: Extract<PageContext, { kind: 'pr' | 'code' }>, now
 }
 
 /**
- * Repository home: between the toolbar (branch picker, Go to file, Code) and the file list.
+ * Repository or branch home: between the toolbar (branch picker, Go to file, Code) and the
+ * file list, right above the latest-commit box (below the "commits ahead" note on branches).
  * This is inside GitHub's React tree, so we only ever add a sibling and never touch
  * React's own nodes. Found without GitHub's generated class names: the child of the
  * nearest common ancestor of the branch picker and the latest-commit box that holds the
