@@ -137,6 +137,17 @@
       }
     }
   },
+  "stepsProgress": {
+    "message": "단계 $DONE$/$TOTAL$",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
   "timeLeft": {
     "message": "약 $DURATION$ 남음",
     "placeholders": {

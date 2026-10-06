@@ -1,6 +1,6 @@
 import { timeAgo } from '../lib/format'
 import { t, tAround, type MessageKey } from '../lib/i18n'
-import { computeProgress, formatDuration, isActive } from '../lib/progress'
+import { computeProgress, formatDuration, isActive, progressSummary } from '../lib/progress'
 import { toneOf } from '../lib/status'
 import type { TrackedRun } from '../lib/types'
 import { iconSvg } from '../shared/icons'
@@ -64,14 +64,13 @@ export function liveProgress(run: TrackedRun, now: number) {
 
 function stepText(run: TrackedRun, now: number): { step: string; time: string; pct: number | null; failing: boolean } {
   const p = liveProgress(run, now)
-  const running = run.jobs.find((j) => j.status === 'in_progress')
   const queued = toneOf(run.status, run.conclusion) === 'queued'
   // nothing has started yet, so a percentage or time left would be made up
   if (queued) return { pct: null, failing: false, step: t('waitingForRunner'), time: t('queuedFor', formatDuration(p.elapsedMs)) }
   return {
     pct: Math.round(p.ratio * 100),
     failing: run.jobs.some((j) => j.conclusion === 'failure'),
-    step: `${t('jobsProgress', p.jobsDone, p.jobsTotal)}${running?.currentStep ? ` · ${running.currentStep}` : ''}`,
+    step: progressSummary(run.jobs),
     time:
       p.remainingMs !== null && !p.overtime
         ? t('timeLeft', formatDuration(p.remainingMs))
