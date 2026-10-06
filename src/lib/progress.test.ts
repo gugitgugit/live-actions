@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { computeProgress, formatDuration, medianDuration, progressSummary, stepCeiling, stepRatio, summarizeJobs } from './progress'
-import type { ApiJob, ApiRun, JobSummary } from './types'
+import { computeProgress, formatDuration, progressSummary, stepCeiling, stepRatio, summarizeJobs } from './progress'
+import type { ApiJob, ApiRun, JobSummary, WorkflowHistory } from './types'
+
+/** history with a run total only, no per-job figures: the whole-run fallback */
+const whole = (totalMs: number): WorkflowHistory => ({ totalMs, jobs: {} })
 
 const job = (over: Partial<JobSummary>): JobSummary => ({
   id: 1,
@@ -70,20 +73,20 @@ describe('computeProgress', () => {
   const t = (sec: number) => Date.parse(start) + sec * 1000
 
   it('uses elapsed time against the estimate', () => {
-    const p = computeProgress(run(start), [job({ stepsDone: 4, stepsTotal: 10 })], 200_000, t(100))
+    const p = computeProgress(run(start), [job({ stepsDone: 4, stepsTotal: 10 })], whole(200_000), t(100))
     expect(p.ratio).toBeCloseTo(0.5)
     expect(p.remainingMs).toBe(100_000)
     expect(p.overtime).toBe(false)
   })
 
   it('never falls behind the step ratio', () => {
-    const p = computeProgress(run(start), [job({ stepsDone: 8, stepsTotal: 10 })], 200_000, t(20))
+    const p = computeProgress(run(start), [job({ stepsDone: 8, stepsTotal: 10 })], whole(200_000), t(20))
     expect(p.ratio).toBeCloseTo(0.8)
   })
 
   it('does not run ahead of the step that is still running', () => {
     // 3 of 10 steps done, the 4th is running: at most 40% even though time says 90%
-    const p = computeProgress(run(start), [job({ stepsDone: 3, stepsTotal: 10 })], 100_000, t(90))
+    const p = computeProgress(run(start), [job({ stepsDone: 3, stepsTotal: 10 })], whole(100_000), t(90))
     expect(p.ratio).toBeCloseTo(0.4)
     // remaining follows the work left, not the clock
     expect(p.remainingMs).toBe(60_000)
@@ -92,16 +95,16 @@ describe('computeProgress', () => {
 
   it('holds back for jobs that have not started', () => {
     const jobs = [job({ stepsDone: 1, stepsTotal: 2 }), job({ status: 'queued' })]
-    const p = computeProgress(run(start), jobs, 100_000, t(90))
+    const p = computeProgress(run(start), jobs, whole(100_000), t(90))
     expect(p.ratio).toBe(0.5)
   })
 
   it('stays at 0 before any job exists', () => {
-    expect(computeProgress(run(start), [], 100_000, t(50)).ratio).toBe(0)
+    expect(computeProgress(run(start), [], whole(100_000), t(50)).ratio).toBe(0)
   })
 
   it('caps unfinished runs below 100% and flags overtime', () => {
-    const p = computeProgress(run(start), [job({})], 60_000, t(120))
+    const p = computeProgress(run(start), [job({})], whole(60_000), t(120))
     expect(p.ratio).toBe(0.97)
     expect(p.overtime).toBe(true)
     expect(p.remainingMs).toBe(0)
@@ -122,19 +125,6 @@ describe('computeProgress', () => {
     )
     expect(p.ratio).toBe(1)
     expect(p.elapsedMs).toBe(90_000)
-  })
-})
-
-describe('medianDuration', () => {
-  it('takes the median of run durations', () => {
-    const runs = [60, 300, 90].map((sec) =>
-      run('2026-01-01T00:00:00Z', { updated_at: new Date(Date.parse('2026-01-01T00:00:00Z') + sec * 1000).toISOString() }),
-    )
-    expect(medianDuration(runs)).toBe(90_000)
-  })
-
-  it('returns null without data', () => {
-    expect(medianDuration([])).toBeNull()
   })
 })
 

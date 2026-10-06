@@ -37,7 +37,8 @@ const run = (over: Partial<TrackedRun> & { estimateMs?: number | null }): Tracke
     startedAt: start,
     updatedAt: start,
     jobs: [job({ stepsDone: 9, stepsTotal: 10 })],
-    progress: { ratio: 0, jobsDone: 0, jobsTotal: 1, elapsedMs: 0, estimateMs, remainingMs: null, overtime: false },
+    history: estimateMs === null ? null : { totalMs: estimateMs, jobs: {} },
+    progress: { ratio: 0, jobsDone: 0, jobsTotal: 1, elapsedMs: 0, estimateMs, remainingMs: null, overtime: false, overdueMs: 0 },
     ...rest,
   }
 }

@@ -1,6 +1,6 @@
 import { timeAgo } from '../lib/format'
 import { t, tAround, type MessageKey } from '../lib/i18n'
-import { computeProgress, formatDuration, isActive, progressSummary } from '../lib/progress'
+import { formatDuration, isActive, progressSummary, runProgress } from '../lib/progress'
 import { toneOf } from '../lib/status'
 import type { TrackedRun } from '../lib/types'
 import { iconSvg } from '../shared/icons'
@@ -53,17 +53,8 @@ function setIcon(node: HTMLElement, run: TrackedRun) {
   }
 }
 
-export function liveProgress(run: TrackedRun, now: number) {
-  return computeProgress(
-    { status: run.status, run_started_at: run.startedAt, created_at: run.startedAt, updated_at: run.updatedAt },
-    run.jobs,
-    run.progress.estimateMs,
-    now,
-  )
-}
-
 function stepText(run: TrackedRun, now: number): { step: string; time: string; pct: number | null; failing: boolean } {
-  const p = liveProgress(run, now)
+  const p = runProgress(run, now)
   const queued = toneOf(run.status, run.conclusion) === 'queued'
   // nothing has started yet, so a percentage or time left would be made up
   if (queued) return { pct: null, failing: false, step: t('waitingForRunner'), time: t('queuedFor', formatDuration(p.elapsedMs)) }

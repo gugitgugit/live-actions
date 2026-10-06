@@ -1,5 +1,6 @@
+import { executionStart, remainingByJobs } from './estimate'
 import { t } from './i18n'
-import type { ApiJob, ApiRun, ApiRunStatus, JobSummary, Progress } from './types'
+import type { ApiJob, ApiRun, ApiRunStatus, JobSummary, Progress, TrackedRun, WorkflowHistory } from './types'
 
 export const ACTIVE_STATUSES: ReadonlySet<ApiRunStatus> = new Set([
   'queued',
@@ -26,6 +27,9 @@ export function summarizeJobs(jobs: ApiJob[]): JobSummary[] {
       stepsDone: steps.filter((s) => s.status === 'completed').length,
       stepsTotal: steps.length,
       currentStep: current?.name ?? null,
+      startedAt: job.started_at,
+      completedAt: job.completed_at,
+      steps: steps.map((s) => ({ name: s.name, status: s.status, startedAt: s.started_at ?? null })),
     }
   })
 }
@@ -65,59 +69,63 @@ const MAX_ACTIVE_RATIO = 0.97
 export function computeProgress(
   run: Pick<ApiRun, 'status' | 'run_started_at' | 'created_at' | 'updated_at'>,
   jobs: JobSummary[],
-  estimateMs: number | null,
+  history: WorkflowHistory | null,
   now = Date.now(),
+  /** when `jobs` was fetched; estimates carry on from there between polls */
+  fetchedAt = now,
 ): Progress {
   const startedAt = Date.parse(run.run_started_at ?? run.created_at)
   const done = run.status === 'completed'
   const endAt = done ? Date.parse(run.updated_at) : now
   const elapsedMs = Math.max(0, endAt - startedAt)
   const jobsDone = jobs.filter((j) => j.status === 'completed').length
+  const estimateMs = history?.totalMs ?? null
 
   if (done) {
-    return {
-      ratio: 1,
-      jobsDone,
-      jobsTotal: jobs.length,
-      elapsedMs,
-      estimateMs,
-      remainingMs: 0,
-      overtime: false,
-    }
+    return { ratio: 1, jobsDone, jobsTotal: jobs.length, elapsedMs, estimateMs, remainingMs: 0, overtime: false, overdueMs: 0 }
   }
 
-  // Time is a better signal than step count (one slow step can dominate a run),
-  // so interpolate by time when history exists, but stay within what the steps say:
+  // Waiting for a runner is not part of the work, and varies from seconds to minutes:
+  // compare execution time only, on both sides of the estimate.
+  const execStart = executionStart(jobs, startedAt)
+  const execMs = execStart === null ? 0 : Math.max(0, now - execStart)
+  const overdueMs = estimateMs === null ? 0 : Math.max(0, execMs - estimateMs)
+  const base = { jobsDone, jobsTotal: jobs.length, elapsedMs, estimateMs, overtime: overdueMs > 0, overdueMs }
+
+  // Per job and step: the current step keeps counting down between polls, and a poll only
+  // corrects by how much faster or slower that step was than usual.
+  const byJobs = history ? remainingByJobs(jobs, history, execStart, now, fetchedAt) : null
+  if (byJobs !== null) {
+    const ratio = execStart === null ? 0 : byJobs === 0 ? MAX_ACTIVE_RATIO : execMs / (execMs + byJobs)
+    return { ...base, ratio: Math.min(MAX_ACTIVE_RATIO, ratio), remainingMs: byJobs }
+  }
+
+  // Without per-job history, interpolate the whole run by time, within what the steps say:
   // never behind the finished steps, never past the end of the running step.
   const floor = stepRatio(jobs)
   const ceiling = stepCeiling(jobs)
-  const byTime = estimateMs ? elapsedMs / estimateMs : 0
+  const byTime = estimateMs ? execMs / estimateMs : 0
   const ratio = Math.min(MAX_ACTIVE_RATIO, Math.min(ceiling, Math.max(byTime, floor)))
-  const overtime = estimateMs !== null && elapsedMs > estimateMs
 
   return {
+    ...base,
     ratio,
-    jobsDone,
-    jobsTotal: jobs.length,
-    elapsedMs,
-    estimateMs,
     // When the steps hold the bar back, the clock alone would promise too little time left;
     // assume the remaining share of the work takes its share of the typical duration.
     remainingMs:
-      estimateMs === null ? null : overtime ? 0 : Math.max(estimateMs - elapsedMs, estimateMs * (1 - ratio)),
-    overtime,
+      estimateMs === null ? null : base.overtime ? 0 : Math.max(estimateMs - execMs, estimateMs * (1 - ratio)),
   }
 }
 
-/** Median duration of completed runs; robust against the occasional cache-miss outlier. */
-export function medianDuration(runs: ApiRun[]): number | null {
-  const durations = runs
-    .map((r) => Date.parse(r.updated_at) - Date.parse(r.run_started_at ?? r.created_at))
-    .filter((d) => Number.isFinite(d) && d > 0)
-    .sort((a, b) => a - b)
-  if (durations.length === 0) return null
-  const mid = Math.floor(durations.length / 2)
-  return durations.length % 2 ? durations[mid] : Math.round((durations[mid - 1] + durations[mid]) / 2)
+/** Progress of a stored run at `now`, so bars and timers move between polls. */
+export function runProgress(run: TrackedRun, now: number): Progress {
+  return computeProgress(
+    { status: run.status, run_started_at: run.startedAt, created_at: run.startedAt, updated_at: run.updatedAt },
+    run.jobs,
+    run.history ?? null,
+    now,
+    run.fetchedAt ?? now,
+  )
 }
 
 export function formatDuration(ms: number): string {

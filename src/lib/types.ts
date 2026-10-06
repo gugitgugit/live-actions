@@ -113,6 +113,16 @@ export interface JobSummary {
   stepsDone: number
   stepsTotal: number
   currentStep: string | null
+  /** absent in runs stored by versions before the per-step estimate */
+  startedAt?: string | null
+  completedAt?: string | null
+  steps?: StepSummary[]
+}
+
+export interface StepSummary {
+  name: string
+  status: ApiStep['status']
+  startedAt: string | null
 }
 
 export interface Progress {
@@ -120,11 +130,15 @@ export interface Progress {
   ratio: number
   jobsDone: number
   jobsTotal: number
+  /** since the run (attempt) started, queue included: the duration GitHub shows */
   elapsedMs: number
-  /** typical duration of this workflow, from recent successful runs */
+  /** typical execution time of this workflow (first job start to last job end), from recent successful runs */
   estimateMs: number | null
   remainingMs: number | null
+  /** execution has taken longer than estimateMs */
   overtime: boolean
+  /** how far past estimateMs, 0 unless overtime */
+  overdueMs: number
 }
 
 export interface TrackedRun {
@@ -145,6 +159,10 @@ export interface TrackedRun {
   startedAt: string
   updatedAt: string
   jobs: JobSummary[]
+  /** what recent successful runs of the workflow looked like; absent in runs stored by older versions */
+  history?: WorkflowHistory | null
+  /** epoch ms when `jobs` was fetched */
+  fetchedAt?: number
   progress: Progress
   /** epoch ms when we first saw it as completed */
   completedAt?: number
@@ -161,8 +179,29 @@ export interface RepoInfo {
   fetchedAt: number
 }
 
+/** Medians over recent successful runs of one workflow, for estimating time left (see lib/estimate.ts). */
+export interface WorkflowHistory {
+  /** first job start to last job end; runner queue before the first job is left out */
+  totalMs: number | null
+  /** by job name */
+  jobs: Record<string, JobHistory>
+}
+
+export interface JobHistory {
+  durationMs: number
+  /** by step key (see stepKeys) */
+  steps: Record<string, number>
+  /** last step end to job end */
+  tailMs: number
+  /** jobs that had finished before this one started in every sampled run: its `needs`, as observed */
+  after: string[]
+  /** from those jobs finishing (or the run's first job starting) to this job starting */
+  startDelayMs: number
+}
+
 export interface DurationStat {
-  medianMs: number | null
+  /** absent in entries stored by older versions, which are refetched */
+  history?: WorkflowHistory | null
   fetchedAt: number
 }
 

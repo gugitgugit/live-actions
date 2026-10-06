@@ -1,4 +1,4 @@
-import { computeProgress } from './progress'
+import { runProgress } from './progress'
 import type { TrackedRun } from './types'
 
 /** while someone is looking (popup open, or a visible GitHub tab showing progress) */
@@ -14,14 +14,9 @@ const WRAP_UP_STEP = /^(Post |Complete job$)/
 export function isFinishing(run: TrackedRun, now = Date.now()): boolean {
   if (run.status !== 'in_progress') return false
 
-  const p = computeProgress(
-    { status: run.status, run_started_at: run.startedAt, created_at: run.startedAt, updated_at: run.updatedAt },
-    run.jobs,
-    run.progress.estimateMs,
-    now,
-  )
+  const p = runProgress(run, now)
   if (p.estimateMs !== null) {
-    if (p.overtime) return p.elapsedMs - p.estimateMs <= OVERTIME_GRACE_MS
+    if (p.overtime) return p.overdueMs <= OVERTIME_GRACE_MS
     // remaining already accounts for steps holding the bar back (see computeProgress)
     if (p.remainingMs !== null && p.remainingMs <= FINISHING_WINDOW_MS) return true
   }

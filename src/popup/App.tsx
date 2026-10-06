@@ -3,7 +3,7 @@ import { errorText, type ErrorInfo } from '../lib/errors'
 import { isCounted } from '../lib/filters'
 import { t } from '../lib/i18n'
 import { POPUP_PORT, send } from '../lib/messages'
-import { computeProgress, formatDuration, isActive, progressSummary } from '../lib/progress'
+import { formatDuration, isActive, progressSummary, runProgress } from '../lib/progress'
 import type { TrackedRun } from '../lib/types'
 import { StatusIcon, toneOf } from '../shared/StatusIcon'
 import { timeAgo, useNow, useStorage } from '../shared/useStorage'
@@ -155,12 +155,7 @@ export function App() {
 function ActiveRun({ run, now }: { run: TrackedRun; now: number }) {
   const [open, setOpen] = useState(false)
   // Recompute locally so the bar and timers move smoothly between polls.
-  const p = computeProgress(
-    { status: run.status, run_started_at: run.startedAt, created_at: run.startedAt, updated_at: run.updatedAt },
-    run.jobs,
-    run.progress.estimateMs,
-    now,
-  )
+  const p = runProgress(run, now)
   const tone = toneOf(run.status, run.conclusion)
   const failing = run.jobs.some((j) => j.conclusion === 'failure')
   const pct = Math.round(p.ratio * 100)
