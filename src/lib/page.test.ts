@@ -4,10 +4,10 @@ import type { TrackedRun } from './types'
 
 describe('parsePage', () => {
   it.each([
-    ['https://github.com/o/r', { kind: 'code', repo: 'o/r', ref: null }],
-    ['https://github.com/o/r/', { kind: 'code', repo: 'o/r', ref: null }],
-    ['https://github.com/o/r/tree/feat/x', { kind: 'code', repo: 'o/r', ref: 'feat/x' }],
-    ['https://github.com/o/r/blob/main/src/a.ts', { kind: 'code', repo: 'o/r', ref: 'main/src/a.ts' }],
+    ['https://github.com/o/r', { kind: 'code', repo: 'o/r', ref: null, view: 'home' }],
+    ['https://github.com/o/r/', { kind: 'code', repo: 'o/r', ref: null, view: 'home' }],
+    ['https://github.com/o/r/tree/feat/x', { kind: 'code', repo: 'o/r', ref: 'feat/x', view: 'tree' }],
+    ['https://github.com/o/r/blob/main/src/a.ts', { kind: 'code', repo: 'o/r', ref: 'main/src/a.ts', view: 'blob' }],
     ['https://github.com/o/r/pull/42', { kind: 'pr', repo: 'o/r', number: 42 }],
     ['https://github.com/o/r/pull/42/files?w=1', { kind: 'pr', repo: 'o/r', number: 42 }],
     ['https://github.com/o/r/actions', { kind: 'actions', repo: 'o/r' }],
@@ -72,15 +72,40 @@ describe('runsForPage', () => {
   it('shows the default branch on the repository home and counts other branches', () => {
     const onMain = run({ branch: 'main' })
     const onFeat = run({ branch: 'feat', workflowId: 2 })
-    const res = runsForPage({ kind: 'code', repo: 'o/r', ref: null }, [onMain, onFeat], 'main')
+    const res = runsForPage({ kind: 'code', repo: 'o/r', ref: null, view: 'home' }, [onMain, onFeat], 'main')
     expect(res.primary).toEqual([onMain])
     expect(res.othersActive).toBe(1)
   })
 
-  it('resolves the branch of a tree path', () => {
+  it("shows a branch's home, including branch names with slashes", () => {
     const r = run({ branch: 'feat/x' })
-    const res = runsForPage({ kind: 'code', repo: 'o/r', ref: 'feat/x/src' }, [r], 'main')
+    const res = runsForPage({ kind: 'code', repo: 'o/r', ref: 'feat/x', view: 'tree' }, [r], 'main')
     expect(res.primary).toEqual([r])
+  })
+
+  it('shows nothing in a folder, not even other branches', () => {
+    const r = run({ branch: 'feat/x' })
+    const other = run({ branch: 'main', workflowId: 2 })
+    const res = runsForPage({ kind: 'code', repo: 'o/r', ref: 'feat/x/src', view: 'tree' }, [r, other], 'main')
+    expect(res).toEqual({ primary: [], othersActive: 0 })
+  })
+
+  it('treats the default branch as known even without runs on it', () => {
+    const elsewhere = run({ branch: 'feat/x' })
+    const folder = runsForPage({ kind: 'code', repo: 'o/r', ref: 'main/docs', view: 'tree' }, [elsewhere], 'main')
+    expect(folder.othersActive).toBe(0)
+    const home = runsForPage({ kind: 'code', repo: 'o/r', ref: 'main', view: 'tree' }, [elsewhere], 'main')
+    expect(home.othersActive).toBe(1)
+  })
+
+  it('shows nothing on a file page', () => {
+    const r = run({ branch: 'main' })
+    expect(runsForPage({ kind: 'code', repo: 'o/r', ref: 'main/README.md', view: 'blob' }, [r], 'main').primary).toEqual([])
+  })
+
+  it('stays out of the way when the path matches no known branch', () => {
+    const res = runsForPage({ kind: 'code', repo: 'o/r', ref: 'unknown/path', view: 'tree' }, [run({ branch: 'main' })], 'main')
+    expect(res).toEqual({ primary: [], othersActive: 0 })
   })
 
   it('ignores other repositories', () => {

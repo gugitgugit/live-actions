@@ -4,8 +4,11 @@ import type { TrackedRun } from './types'
 /** Pages that get in-page progress. */
 export type PageContext =
   | { kind: 'pr'; repo: string; number: number }
-  /** repository home (`ref` null = default branch), /tree/... or /blob/... */
-  | { kind: 'code'; repo: string; ref: string | null }
+  /**
+   * Repository home (`ref` null = default branch), /tree/<branch>[/<path>] or /blob/<branch>/<path>.
+   * `view` tells a file apart; a /tree/ path is a branch's home or a folder, see runsForPage.
+   */
+  | { kind: 'code'; repo: string; ref: string | null; view: 'home' | 'tree' | 'blob' }
   | { kind: 'actions'; repo: string }
 
 // First path segments that are GitHub features, not owners.
@@ -34,8 +37,10 @@ export function parsePage(href: string): PageContext | null {
   }
   const repo = `${owner}/${name}`
 
-  if (section === undefined) return { kind: 'code', repo, ref: null }
-  if ((section === 'tree' || section === 'blob') && rest.length > 0) return { kind: 'code', repo, ref: rest.join('/') }
+  if (section === undefined) return { kind: 'code', repo, ref: null, view: 'home' }
+  if ((section === 'tree' || section === 'blob') && rest.length > 0) {
+    return { kind: 'code', repo, ref: rest.join('/'), view: section }
+  }
   if (section === 'pull' && /^\d+$/.test(rest[0] ?? '')) return { kind: 'pr', repo, number: Number(rest[0]) }
   // the run list (optionally filtered by workflow), not a single run's page
   if (section === 'actions' && (rest.length === 0 || rest[0] === 'workflows')) return { kind: 'actions', repo }
@@ -76,8 +81,15 @@ export function runsForPage(
     return { primary: latestPerWorkflow(primary), othersActive: 0 }
   }
 
+  // Only the repository home and a branch's home (/tree/<branch>) get the banner: on folder
+  // and file pages nobody is waiting for CI, and the commit status icon there is kept live anyway.
+  const none: PageRuns = { primary: [], othersActive: 0 }
+  if (ctx.view === 'blob') return none
   const branches = new Set(inRepo.map((r) => r.branch).filter((b): b is string => !!b))
+  if (defaultBranch) branches.add(defaultBranch)
   const branch = ctx.ref === null ? defaultBranch : matchBranch(ctx.ref, branches)
+  // a longer path is a folder; an unknown branch could be either, so stay out of the way
+  if (ctx.ref !== null && branch !== ctx.ref) return none
   const primary = branch === null ? [] : inRepo.filter((r) => r.branch === branch)
   const othersActive = inRepo.filter((r) => isActive(r.status) && !primary.includes(r)).length
   return { primary: latestPerWorkflow(primary), othersActive }
