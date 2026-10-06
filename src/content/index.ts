@@ -19,6 +19,15 @@ const ANCHOR = '#repo-content-pjax-container'
 /** code pages: the branch picker in the toolbar and the latest-commit box at the top of the file list */
 const BRANCH_PICKER = '#ref-picker-repos-header-ref-selector'
 const LATEST_COMMIT = '[data-testid="latest-commit"]'
+/** pull request conversation: the merge box with the checks summary */
+const MERGE_BOX = '[data-testid="mergebox-partial"]'
+
+/** a spot inside GitHub's React tree: `before` is GitHub's element the banner goes in front of */
+interface Slot {
+  parent: Element
+  before: Element
+  kind: 'toolbar' | 'mergebox'
+}
 
 type State = Pick<StorageSchema, 'settings' | 'runs' | 'repoInfo' | 'meta' | 'commits'>
 let state: State | null = null
@@ -146,11 +155,17 @@ function renderBannerFor(ctx: Extract<PageContext, { kind: 'pr' | 'code' }>, now
 
   let host = document.getElementById(BANNER_ID)
   if (!host) host = createShadowHost(BANNER_ID)
-  // repository home only: /tree/ and /blob/ pages put the branch picker in a side panel
-  const slot = ctx.kind === 'code' && ctx.ref === null ? toolbarSlot() : null
+  // repository home only: /tree/ and /blob/ pages put the branch picker in a side panel.
+  // Pull requests: only the Conversation tab has a merge box; other tabs keep the top spot.
+  const slot = ctx.kind === 'pr' ? mergeBoxSlot() : ctx.ref === null ? toolbarSlot() : null
   const anchor = document.querySelector(ANCHOR)
   host.classList.toggle('inline', !!slot)
+  host.classList.toggle('mergebox', slot?.kind === 'mergebox')
   host.classList.toggle('floating', !slot && !anchor)
+  // line up with the merge box, which is indented to match the timeline's comment bubbles
+  const indent = slot?.kind === 'mergebox' ? getComputedStyle(slot.before) : null
+  host.style.marginLeft = indent?.marginLeft ?? ''
+  host.style.paddingLeft = indent?.paddingLeft ?? ''
   if (slot) {
     if (host.parentElement !== slot.parent || host.nextElementSibling !== slot.before) slot.parent.insertBefore(host, slot.before)
   } else if (anchor) {
@@ -175,22 +190,36 @@ function renderBannerFor(ctx: Extract<PageContext, { kind: 'pr' | 'code' }>, now
  * nearest common ancestor of the branch picker and the latest-commit box that holds the
  * latter is the file list, and the banner goes right before it.
  */
-function toolbarSlot(): { parent: Element; before: Element } | null {
+function toolbarSlot(): Slot | null {
   const picker = document.querySelector(BRANCH_PICKER)
   const latest = document.querySelector(LATEST_COMMIT)
   if (!picker || !latest) return null
   let common = latest.parentElement
   while (common && !common.contains(picker)) common = common.parentElement
   if (!common) return null
-  // inserting while React is still hydrating server-rendered markup would make it bail out
-  const app = common.closest('react-app')
-  if (app && !app.classList.contains('loaded')) return null
+  if (!reactSettled(common)) return null
   const before = [...common.children].find((c) => c.contains(latest))
   const toolbar = [...common.children].find((c) => c.contains(picker))
   if (!before || !toolbar) return null
   // only a vertical stack (toolbar above the list); in a side-by-side layout the banner would become a column
   if (toolbar.getBoundingClientRect().bottom > before.getBoundingClientRect().top + 1) return null
-  return { parent: common, before }
+  return { parent: common, before, kind: 'toolbar' }
+}
+
+/**
+ * Pull request Conversation tab: right above the merge box, where the checks are listed.
+ * Same rules as the toolbar slot: a sibling only, never touching GitHub's nodes.
+ */
+function mergeBoxSlot(): Slot | null {
+  const box = document.querySelector(MERGE_BOX)
+  if (!box?.parentElement || !reactSettled(box)) return null
+  return { parent: box.parentElement, before: box, kind: 'mergebox' }
+}
+
+/** Inserting while React is still hydrating server-rendered markup would make it bail out. */
+function reactSettled(el: Element): boolean {
+  const app = el.closest('react-app')
+  return !app || app.classList.contains('loaded')
 }
 
 /** A compact bar under each running row of the Actions run list. */
