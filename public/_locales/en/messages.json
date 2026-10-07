@@ -193,7 +193,7 @@
     }
   },
   "installHint": {
-    "message": "Actions Pulse can't see this repository's runs. To track them, $LINK$.",
+    "message": "Actions Pulse can't see this private repository. To track it, $LINK$.",
     "placeholders": {
       "link": {
         "content": "$1"
@@ -201,7 +201,7 @@
     }
   },
   "installHintLink": {
-    "message": "install the Actions Pulse app on it"
+    "message": "grant access on GitHub"
   },
   "workflowProgressLabel": {
     "message": "Workflow progress"
@@ -388,9 +388,6 @@
       }
     }
   },
-  "deviceEnterCode": {
-    "message": "Enter this code on GitHub to authorize Actions Pulse:"
-  },
   "deviceCopied": {
     "message": "Copied — open GitHub again"
   },
@@ -404,13 +401,13 @@
     "message": "Waiting for authorization… Keep this tab open."
   },
   "deviceIntro": {
-    "message": "Sign in with the Actions Pulse GitHub App. It only asks for read access to Actions and repository metadata."
+    "message": "Connect your GitHub account to see Actions progress live. Only read access is requested."
   },
   "tokenRejected": {
     "message": "GitHub rejected this token."
   },
   "patSummary": {
-    "message": "Use a personal access token instead"
+    "message": "Sign in with a personal access token instead"
   },
   "patHelp": {
     "message": "Create a $LINK$ with Actions: Read-only and Metadata: Read-only for the repositories you want to watch.",
@@ -427,27 +424,62 @@
     "message": "Save token"
   },
   "reposTitle": {
-    "message": "Repositories"
+    "message": "Repositories to notify about"
+  },
+  "deviceStep1": {
+    "message": "Copy the code below"
+  },
+  "deviceStep2": {
+    "message": "Enter it on GitHub"
+  },
+  "deviceStep3": {
+    "message": "Approve it there, and you're signed in here automatically"
+  },
+  "reposIntro": {
+    "message": "Runs in these repositories show up in the popup, badge and notifications. Progress bars on GitHub pages appear without adding anything here."
+  },
+  "accessNoteApp": {
+    "message": "Public repositories work right away. Private ones need access granted to Actions Pulse on GitHub."
+  },
+  "accessNotePat": {
+    "message": "Public repositories work right away. Private ones show up only if your token has access to them."
+  },
+  "allowAccess": {
+    "message": "Grant repository access on GitHub"
+  },
+  "groupWatching": {
+    "message": "Notifying"
+  },
+  "groupAvailable": {
+    "message": "Available to add"
+  },
+  "noneWatched": {
+    "message": "None yet. Add one from the list below."
+  },
+  "remove": {
+    "message": "Remove"
+  },
+  "addNamed": {
+    "message": "Add $REPO$",
+    "placeholders": {
+      "repo": {
+        "content": "$1"
+      }
+    }
   },
   "reposWatched": {
-    "message": "$COUNT$ watched",
+    "message": "$COUNT$ selected",
     "placeholders": {
       "count": {
         "content": "$1"
       }
     }
   },
-  "reposMissing": {
-    "message": "Missing a repository?"
-  },
-  "installMoreRepos": {
-    "message": "Install the app on more repositories"
-  },
   "reloadList": {
     "message": "Reload the list"
   },
   "filterRepos": {
-    "message": "Filter repositories"
+    "message": "Search, or type owner/repo to add a public repository"
   },
   "reposLoadError": {
     "message": "Could not load repositories: $DETAIL$",
@@ -464,16 +496,10 @@
     "message": "No matching repositories."
   },
   "reposNone": {
-    "message": "No repositories found."
+    "message": "No repositories to add."
   },
   "private": {
     "message": "Private"
-  },
-  "addByNamePlaceholder": {
-    "message": "Add by name: owner/repo"
-  },
-  "addByNameAria": {
-    "message": "Add repository by name"
   },
   "add": {
     "message": "Add"

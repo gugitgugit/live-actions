@@ -147,6 +147,39 @@ code {
 .repo-list li + li {
   border-top: 1px solid var(--border-muted);
 }
+.signin {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+.steps {
+  margin: 0;
+  padding-left: 20px;
+  text-align: left;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.group {
+  margin: 4px 0 -4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+.notice-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.repo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+}
 .repo-list label {
   display: flex;
   align-items: center;
@@ -163,7 +196,7 @@ code {
   white-space: nowrap;
 }
 .repo-error {
-  padding: 0 12px 8px 36px;
+  padding: 0 12px 8px;
 }
 .tag {
   font-size: 11px;

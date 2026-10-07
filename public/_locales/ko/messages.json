@@ -193,7 +193,7 @@
     }
   },
   "installHint": {
-    "message": "Actions Pulse가 이 저장소의 실행을 볼 수 없어요. 추적하려면 $LINK$.",
+    "message": "Actions Pulse가 이 비공개 저장소를 볼 수 없어요. 추적하려면 $LINK$.",
     "placeholders": {
       "link": {
         "content": "$1"
@@ -201,7 +201,7 @@
     }
   },
   "installHintLink": {
-    "message": "이 저장소에 Actions Pulse 앱을 설치하세요"
+    "message": "GitHub에서 접근을 허용하세요"
   },
   "workflowProgressLabel": {
     "message": "워크플로 진행률"
@@ -388,9 +388,6 @@
       }
     }
   },
-  "deviceEnterCode": {
-    "message": "GitHub에서 이 코드를 입력해 Actions Pulse를 승인하세요:"
-  },
   "deviceCopied": {
     "message": "복사됨 — GitHub 다시 열기"
   },
@@ -404,13 +401,13 @@
     "message": "승인을 기다리는 중… 이 탭을 열어 두세요."
   },
   "deviceIntro": {
-    "message": "Actions Pulse GitHub 앱으로 로그인하세요. Actions와 저장소 메타데이터 읽기 권한만 요청해요."
+    "message": "GitHub 계정을 연결하면 Actions 진행 상황을 실시간으로 볼 수 있어요. 읽기 권한만 요청해요."
   },
   "tokenRejected": {
     "message": "GitHub에서 이 토큰을 거부했어요."
   },
   "patSummary": {
-    "message": "대신 개인 액세스 토큰 사용"
+    "message": "개인 액세스 토큰으로 로그인"
   },
   "patHelp": {
     "message": "지켜볼 저장소에 Actions: Read-only, Metadata: Read-only 권한을 준 $LINK$을 만드세요.",
@@ -427,27 +424,62 @@
     "message": "토큰 저장"
   },
   "reposTitle": {
-    "message": "저장소"
+    "message": "알림 받을 저장소"
+  },
+  "deviceStep1": {
+    "message": "아래 코드를 복사해요"
+  },
+  "deviceStep2": {
+    "message": "GitHub에서 코드를 입력해요"
+  },
+  "deviceStep3": {
+    "message": "GitHub에서 승인하면 여기서 자동으로 로그인돼요"
+  },
+  "reposIntro": {
+    "message": "고른 저장소의 실행은 팝업·배지·알림으로 알려 드려요. GitHub 페이지 안 진행 바는 고르지 않아도 보여요."
+  },
+  "accessNoteApp": {
+    "message": "공개 저장소는 바로 볼 수 있어요. 비공개 저장소는 GitHub에서 Actions Pulse의 접근을 허용해야 해요."
+  },
+  "accessNotePat": {
+    "message": "공개 저장소는 바로 볼 수 있어요. 비공개 저장소는 토큰에 권한을 준 것만 보여요."
+  },
+  "allowAccess": {
+    "message": "GitHub에서 저장소 접근 허용하기"
+  },
+  "groupWatching": {
+    "message": "알림 받는 중"
+  },
+  "groupAvailable": {
+    "message": "추가할 수 있는 저장소"
+  },
+  "noneWatched": {
+    "message": "아직 없어요. 아래 목록에서 추가하세요."
+  },
+  "remove": {
+    "message": "빼기"
+  },
+  "addNamed": {
+    "message": "$REPO$ 추가",
+    "placeholders": {
+      "repo": {
+        "content": "$1"
+      }
+    }
   },
   "reposWatched": {
-    "message": "$COUNT$개 지켜보는 중",
+    "message": "$COUNT$개 선택",
     "placeholders": {
       "count": {
         "content": "$1"
       }
     }
   },
-  "reposMissing": {
-    "message": "찾는 저장소가 없나요?"
-  },
-  "installMoreRepos": {
-    "message": "더 많은 저장소에 앱 설치"
-  },
   "reloadList": {
     "message": "목록 새로고침"
   },
   "filterRepos": {
-    "message": "저장소 검색"
+    "message": "저장소 검색 · 공개 저장소는 owner/repo로 추가"
   },
   "reposLoadError": {
     "message": "저장소 목록을 불러오지 못했어요: $DETAIL$",
@@ -464,16 +496,10 @@
     "message": "일치하는 저장소가 없어요."
   },
   "reposNone": {
-    "message": "저장소가 없어요."
+    "message": "추가할 수 있는 저장소가 없어요."
   },
   "private": {
     "message": "비공개"
-  },
-  "addByNamePlaceholder": {
-    "message": "이름으로 추가: owner/repo"
-  },
-  "addByNameAria": {
-    "message": "이름으로 저장소 추가"
   },
   "add": {
     "message": "추가"

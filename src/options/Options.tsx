@@ -6,6 +6,7 @@ import { t, tAround, type MessageKey } from '../lib/i18n'
 import { getTokenFromBackground } from '../lib/messages'
 import { setItem, updateItem } from '../lib/storage'
 import type { ApiRepo, AuthState, NotifyMode, Settings, WatchedRepo } from '../lib/types'
+import { GitHubMark } from '../shared/GitHubMark'
 import { useStorage } from '../shared/useStorage'
 
 export function Options() {
@@ -79,7 +80,7 @@ function Account({ auth, lastError }: { auth: AuthState | null; lastError: Error
 
   return (
     <section className="card">
-      <h2>{t('account')}</h2>
+      <h2>{t('connectTitle')}</h2>
       {lastError && <p className="error">{errorText(lastError)}</p>}
       {isAppConfigured ? (
         <DeviceFlow />
@@ -137,7 +138,11 @@ function DeviceFlow() {
   if (code) {
     return (
       <div className="device">
-        <p>{t('deviceEnterCode')}</p>
+        <ol className="steps">
+          <li>{t('deviceStep1')}</li>
+          <li>{t('deviceStep2')}</li>
+          <li>{t('deviceStep3')}</li>
+        </ol>
         <div className="device-code mono" aria-live="polite">
           {code.userCode}
         </div>
@@ -157,10 +162,10 @@ function DeviceFlow() {
   }
 
   return (
-    <div>
+    <div className="signin">
       <p className="muted">{t('deviceIntro')}</p>
       {error && <p className="error">{error}</p>}
-      <button className="btn btn-primary" onClick={start} disabled={busy}>
+      <button className="btn btn-github btn-large" onClick={start} disabled={busy}>
         <GitHubMark /> {t('signInWithGitHub')}
       </button>
     </div>
@@ -231,8 +236,7 @@ function Repositories({
   const [available, setAvailable] = useState<ApiRepo[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
-  const [manual, setManual] = useState('')
-  const [manualError, setManualError] = useState<string | null>(null)
+  const [addError, setAddError] = useState<string | null>(null)
   const [reload, setReload] = useState(0)
 
   useEffect(() => {
@@ -247,43 +251,37 @@ function Repositories({
   }, [auth.kind, auth.login, client, reload])
 
   const watched = new Set(settings.repos.map((r) => r.fullName))
+  const q = query.trim().toLowerCase()
+  const matches = (name: string) => !q || name.toLowerCase().includes(q)
 
-  // watched repos first, then everything else; include watched repos missing from the listing
-  const rows = useMemo(() => {
-    const byName = new Map<string, WatchedRepo>()
-    for (const r of settings.repos) byName.set(r.fullName, r)
-    for (const r of available ?? []) if (!byName.has(r.full_name)) byName.set(r.full_name, { fullName: r.full_name, private: r.private })
-    const q = query.trim().toLowerCase()
-    return [...byName.values()]
-      .filter((r) => !q || r.fullName.toLowerCase().includes(q))
-      .sort((a, b) => Number(watched.has(b.fullName)) - Number(watched.has(a.fullName)))
-  }, [available, settings.repos, query])
+  // what the app (or token) can list, minus what is already added
+  const addable = useMemo(
+    () =>
+      (available ?? [])
+        .filter((r) => !watched.has(r.full_name) && matches(r.full_name))
+        .map((r): WatchedRepo => ({ fullName: r.full_name, private: r.private })),
+    [available, settings.repos, query],
+  )
+  // "owner/name" typed into the search that is in neither list: offer to add it by name,
+  // which is how public repositories the app was not installed on get added
+  const typed = query.trim().replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '')
+  const offerTyped =
+    /^[\w.-]+\/[\w.-]+$/.test(typed) &&
+    !watched.has(typed) &&
+    !(available ?? []).some((r) => r.full_name.toLowerCase() === typed.toLowerCase())
 
-  const toggle = (repo: WatchedRepo) =>
-    updateItem('settings', (s) => ({
-      ...s,
-      repos: s.repos.some((r) => r.fullName === repo.fullName)
-        ? s.repos.filter((r) => r.fullName !== repo.fullName)
-        : [...s.repos, repo],
-    }))
+  const setRepos = (fn: (repos: WatchedRepo[]) => WatchedRepo[]) => updateItem('settings', (s) => ({ ...s, repos: fn(s.repos) }))
+  const add = (repo: WatchedRepo) => setRepos((repos) => (repos.some((r) => r.fullName === repo.fullName) ? repos : [...repos, repo]))
+  const remove = (fullName: string) => setRepos((repos) => repos.filter((r) => r.fullName !== fullName))
 
-  const addManual = async (e: FormEvent) => {
-    e.preventDefault()
-    setManualError(null)
-    const name = manual
-      .trim()
-      .replace(/^https?:\/\/github\.com\//, '')
-      .replace(/\/$/, '')
-    if (!/^[\w.-]+\/[\w.-]+$/.test(name)) {
-      setManualError(t('ownerNameFormat'))
-      return
-    }
+  const addTyped = async () => {
+    setAddError(null)
     try {
-      const repo = await client.getRepo(name)
-      if (!watched.has(repo.full_name)) await toggle({ fullName: repo.full_name, private: repo.private })
-      setManual('')
+      const repo = await client.getRepo(typed)
+      await add({ fullName: repo.full_name, private: repo.private })
+      setQuery('')
     } catch (err) {
-      setManualError(
+      setAddError(
         err instanceof GitHubError && err.status === 404
           ? auth.kind === 'app'
             ? t('notFoundApp')
@@ -301,65 +299,86 @@ function Repositories({
         <h2 className="grow">{t('reposTitle')}</h2>
         <span className="muted small">{t('reposWatched', settings.repos.length)}</span>
       </div>
+      <p className="muted small">{t('reposIntro')}</p>
 
-      {auth.kind === 'app' && APP_SLUG && (
-        <p className="muted small">
-          {t('reposMissing')}{' '}
-          <a href={`https://github.com/apps/${APP_SLUG}/installations/new`} target="_blank" rel="noreferrer">
-            {t('installMoreRepos')}
-          </a>
-          {' · '}
-          <button className="link" onClick={() => setReload((n) => n + 1)}>
-            {t('reloadList')}
-          </button>
-        </p>
-      )}
+      <div className="notice small">
+        {auth.kind === 'app' ? t('accessNoteApp') : t('accessNotePat')}
+        {auth.kind === 'app' && APP_SLUG && (
+          <div className="notice-actions">
+            <a href={`https://github.com/apps/${APP_SLUG}/installations/new`} target="_blank" rel="noreferrer">
+              {t('allowAccess')}
+            </a>
+            <span className="muted">·</span>
+            <button className="link" onClick={() => setReload((n) => n + 1)}>
+              {t('reloadList')}
+            </button>
+          </div>
+        )}
+      </div>
 
-      <input
-        type="search"
-        className="full"
-        placeholder={t('filterRepos')}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        aria-label={t('filterRepos')}
-      />
-
-      {loadError && <p className="error">{t('reposLoadError', loadError)}</p>}
-      {available === null && !loadError ? (
-        <p className="muted">{t('reposLoading')}</p>
-      ) : rows.length === 0 ? (
-        <p className="muted">{query ? t('reposNoMatch') : t('reposNone')}</p>
+      <h3 className="group">{t('groupWatching')}</h3>
+      {settings.repos.length === 0 ? (
+        <p className="muted small">{t('noneWatched')}</p>
       ) : (
         <ul className="repo-list">
-          {rows.map((repo) => (
+          {settings.repos.map((repo) => (
             <li key={repo.fullName}>
-              <label>
-                <input type="checkbox" checked={watched.has(repo.fullName)} onChange={() => toggle(repo)} />
+              <div className="repo-row">
                 <span className="grow repo-name">{repo.fullName}</span>
                 {repo.private && <span className="tag">{t('private')}</span>}
-              </label>
-              {watched.has(repo.fullName) && repoErrors[repo.fullName] && (
-                <div className="error small repo-error">{errorText(repoErrors[repo.fullName])}</div>
-              )}
+                <button className="btn btn-small" onClick={() => remove(repo.fullName)}>
+                  {t('remove')}
+                </button>
+              </div>
+              {repoErrors[repo.fullName] && <div className="error small repo-error">{errorText(repoErrors[repo.fullName])}</div>}
             </li>
           ))}
         </ul>
       )}
 
-      <form className="row" onSubmit={addManual}>
-        <input
-          type="text"
-          className="grow"
-          placeholder={t('addByNamePlaceholder')}
-          value={manual}
-          onChange={(e) => setManual(e.target.value)}
-          aria-label={t('addByNameAria')}
-        />
-        <button className="btn" disabled={!manual.trim()}>
-          {t('add')}
-        </button>
-      </form>
-      {manualError && <p className="error small">{manualError}</p>}
+      <h3 className="group">{t('groupAvailable')}</h3>
+      <input
+        type="search"
+        className="full"
+        placeholder={t('filterRepos')}
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value)
+          setAddError(null)
+        }}
+        aria-label={t('filterRepos')}
+      />
+      {loadError && <p className="error">{t('reposLoadError', loadError)}</p>}
+      {addError && <p className="error small">{addError}</p>}
+      {available === null && !loadError ? (
+        <p className="muted">{t('reposLoading')}</p>
+      ) : addable.length === 0 && !offerTyped ? (
+        <p className="muted small">{q ? t('reposNoMatch') : t('reposNone')}</p>
+      ) : (
+        <ul className="repo-list">
+          {offerTyped && (
+            <li>
+              <div className="repo-row">
+                <span className="grow repo-name">{typed}</span>
+                <button className="btn btn-small btn-primary" onClick={addTyped} aria-label={t('addNamed', typed)}>
+                  {t('add')}
+                </button>
+              </div>
+            </li>
+          )}
+          {addable.map((repo) => (
+            <li key={repo.fullName}>
+              <div className="repo-row">
+                <span className="grow repo-name">{repo.fullName}</span>
+                {repo.private && <span className="tag">{t('private')}</span>}
+                <button className="btn btn-small" onClick={() => add(repo)}>
+                  {t('add')}
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   )
 }
@@ -416,15 +435,4 @@ function describeAuthError(e: unknown): string {
   }
   if (e instanceof TypeError) return t('authNetwork')
   return e instanceof Error ? e.message : String(e)
-}
-
-function GitHubMark() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-      <path
-        fill="currentColor"
-        d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
-      />
-    </svg>
-  )
 }
