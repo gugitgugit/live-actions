@@ -1,3 +1,5 @@
+import { githubUrl } from './url'
+
 const PREFIX = 'run|'
 
 /**
@@ -16,5 +18,5 @@ export function urlFromNotificationId(id: string): string | null {
   const sep = id.indexOf('|', PREFIX.length)
   if (sep === -1) return null
   const url = id.slice(sep + 1)
-  return url.startsWith('https://github.com/') ? url : null
+  return githubUrl(url)
 }

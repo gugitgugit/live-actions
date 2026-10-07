@@ -6,6 +6,7 @@ import { latestPerWorkflowEvent, rollup } from '../lib/commit'
 import { isCounted } from '../lib/filters'
 import { PAGE_PORT, POPUP_PORT, type Message, type PageMessage, type TokenResponse } from '../lib/messages'
 import { runNotificationId, urlFromNotificationId } from '../lib/notifications'
+import { githubUrl } from '../lib/url'
 import { buildHistory } from '../lib/estimate'
 import { computeProgress, formatDuration, isActive, summarizeJobs } from '../lib/progress'
 import { nextPollDelay } from '../lib/schedule'
@@ -284,7 +285,7 @@ async function track(
     prNumbers: (run.pull_requests ?? []).map((pr) => pr.number),
     event: run.event,
     actor: run.triggering_actor?.login ?? run.actor?.login ?? null,
-    htmlUrl: run.html_url,
+    htmlUrl: githubUrl(run.html_url) ?? `https://github.com/${repo}/actions/runs/${run.id}`,
     attempt: run.run_attempt ?? 1,
     status: run.status,
     conclusion: run.conclusion,

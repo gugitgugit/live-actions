@@ -3,6 +3,10 @@ import { latestPerWorkflow, matchBranch, parsePage, runsForPage } from './page'
 import type { TrackedRun } from './types'
 
 describe('parsePage', () => {
+  it('ignores addresses with malformed escapes instead of throwing', () => {
+    expect(parsePage('https://github.com/o/r/tree/%zz')).toBeNull()
+  })
+
   it.each([
     ['https://github.com/o/r', { kind: 'code', repo: 'o/r', ref: null, view: 'home' }],
     ['https://github.com/o/r/', { kind: 'code', repo: 'o/r', ref: null, view: 'home' }],
