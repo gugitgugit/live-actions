@@ -1,7 +1,10 @@
+import { slimJobList, slimRepo, slimRun, slimRunList } from './slim'
 import type { CacheEntry } from './storage'
 import type { ApiJob, ApiRepo, ApiRun, RateLimit } from './types'
 
 const API = 'https://api.github.com'
+/** about a fifth of chrome.storage.local's 10 MB; slimmed responses (lib/slim.ts) fit easily */
+const MAX_CACHE_BYTES = 2_000_000
 
 export class GitHubError extends Error {
   constructor(
@@ -33,10 +36,20 @@ export class HttpCache {
     return this.dirty
   }
 
-  /** keep the most recently stored entries only */
-  snapshot(max = 150): Record<string, CacheEntry> {
+  /**
+   * Keep the most recently stored entries, at most `max` of them and `maxBytes` of JSON in
+   * total. chrome.storage.local holds 10 MB for everything; past that every write fails.
+   */
+  snapshot(max = 150, maxBytes = MAX_CACHE_BYTES): Record<string, CacheEntry> {
     const sorted = Object.entries(this.entries).sort((a, b) => b[1].storedAt - a[1].storedAt)
-    this.entries = Object.fromEntries(sorted.slice(0, max))
+    const kept: [string, CacheEntry][] = []
+    let bytes = 0
+    for (const entry of sorted.slice(0, max)) {
+      bytes += entry[0].length + JSON.stringify(entry[1]).length
+      if (bytes > maxBytes) break
+      kept.push(entry)
+    }
+    this.entries = Object.fromEntries(kept)
     this.dirty = false
     return this.entries
   }
@@ -52,7 +65,8 @@ export class GitHubClient {
 
   constructor(private opts: ClientOptions) {}
 
-  async request<T>(path: string): Promise<T> {
+  /** @param slim cuts the response down to the fields the extension reads, before it is cached */
+  async request<T>(path: string, slim?: (body: T) => T): Promise<T> {
     const url = path.startsWith('http') ? path : `${API}${path}`
     const token = await this.opts.getToken()
     const headers: Record<string, string> = {
@@ -76,7 +90,8 @@ export class GitHubClient {
       }
       throw new GitHubError(res.status, message)
     }
-    const body = (await res.json()) as T
+    const raw = (await res.json()) as T
+    const body = slim ? slim(raw) : raw
     const etag = res.headers.get('ETag')
     if (etag && this.opts.cache) this.opts.cache.set(url, etag, body)
     return body
@@ -98,24 +113,26 @@ export class GitHubClient {
   }
 
   getRepo(fullName: string) {
-    return this.request<ApiRepo>(`/repos/${fullName}`)
+    return this.request<ApiRepo>(`/repos/${fullName}`, slimRepo)
   }
 
   async listRuns(fullName: string): Promise<ApiRun[]> {
     const data = await this.request<{ workflow_runs: ApiRun[] }>(
       `/repos/${fullName}/actions/runs?per_page=20`,
+      slimRunList,
     )
     return data.workflow_runs
   }
 
   getRun(fullName: string, runId: number) {
-    return this.request<ApiRun>(`/repos/${fullName}/actions/runs/${runId}`)
+    return this.request<ApiRun>(`/repos/${fullName}/actions/runs/${runId}`, slimRun)
   }
 
   /** Every Actions run for one commit, to roll them up like GitHub's status badge. */
   async listRunsForCommit(fullName: string, sha: string): Promise<ApiRun[]> {
     const data = await this.request<{ workflow_runs: ApiRun[] }>(
       `/repos/${fullName}/actions/runs?head_sha=${sha}&per_page=100`,
+      slimRunList,
     )
     return data.workflow_runs
   }
@@ -123,6 +140,7 @@ export class GitHubClient {
   async listJobs(fullName: string, runId: number): Promise<ApiJob[]> {
     const data = await this.request<{ jobs: ApiJob[] }>(
       `/repos/${fullName}/actions/runs/${runId}/jobs?per_page=100`,
+      slimJobList,
     )
     return data.jobs
   }
@@ -130,6 +148,7 @@ export class GitHubClient {
   async listRecentSuccessfulRuns(fullName: string, workflowId: number): Promise<ApiRun[]> {
     const data = await this.request<{ workflow_runs: ApiRun[] }>(
       `/repos/${fullName}/actions/workflows/${workflowId}/runs?status=success&per_page=5`,
+      slimRunList,
     )
     return data.workflow_runs
   }
