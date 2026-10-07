@@ -55,7 +55,7 @@ export function App() {
     <div className="popup">
       <header className="header">
         <Logo />
-        <h1>{t('extName')}</h1>
+        <h1>{t('appName')}</h1>
         <span className="spacer" />
         {auth && settings.repos.length > 0 && (
           <button className="btn-icon" onClick={refresh} disabled={refreshing} title={t('refreshNow')} aria-label={t('refreshNow')}>

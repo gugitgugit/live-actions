@@ -1,12 +1,12 @@
-# Actions Pulse Privacy Policy
+# Live Actions for GitHub Privacy Policy
 
 _Last updated: 2026-10-06_
 
-Actions Pulse is a browser extension that shows the progress of GitHub Actions workflow runs.
+Live Actions for GitHub is a browser extension that shows the progress of GitHub Actions workflow runs.
 
 ## What the extension stores
 
-- **GitHub access token** (from signing in with the Actions Pulse GitHub App, or a personal access token you enter)
+- **GitHub access token** (from signing in with the Live Actions GitHub App, or a personal access token you enter)
 - **Your GitHub username**
 - **The repositories you choose to watch** and your notification preferences
 - **A short-lived cache** of workflow run and job data used to display progress, and the default branch of repositories you view

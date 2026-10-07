@@ -25,7 +25,7 @@ export function Options() {
       <header className="page-header">
         <img src="/icons/icon-128.png" width={32} height={32} alt="" />
         <div>
-          <h1>{t('extName')}</h1>
+          <h1>{t('appName')}</h1>
           <p className="muted">{t('tagline')}</p>
         </div>
       </header>

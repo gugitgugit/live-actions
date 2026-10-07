@@ -82,7 +82,7 @@ function poll(force = false): Promise<void> {
       await doPoll()
     } while (rerun)
   })()
-    .catch((e) => console.error('[actions-pulse] poll failed', e))
+    .catch((e) => console.error('[live-actions] poll failed', e))
     .finally(() => {
       inflight = null
       scheduleNextPoll()
