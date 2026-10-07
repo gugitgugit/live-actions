@@ -816,6 +816,26 @@ background는 최대 30초마다 갱신하므로, 저장된 진행률을 그대�
 > - CRXJS는 content script를 ES 모듈로 불러오기 위해 청크 파일을 `web_accessible_resources`(github.com 한정)에 등록합니다. 그 결과 github.com이 이 익스텐션의 설치 여부를 알아낼 수 있습니다. 담긴 것은 코드뿐이고 비밀값은 없어 허용 가능한 수준으로 판단했습니다.
 > - Web Store 심사용 사유: "Shows workflow progress inside GitHub pull request, code and Actions pages." 
 
+> **변경됨 (2026-10-07): `scripting` 권한 추가**
+>
+> **문제**: 확장 프로그램을 설치하거나 업데이트하면, 이미 열려 있던 GitHub 탭에서는 진행 바와 상태 아이콘이 갱신되지 않았습니다. Chrome은 content script를 설치 이후에 불러온 페이지에만 넣고, 업데이트 시 열린 탭에 있던 이전 버전의 content script는 확장 프로그램과의 연결이 끊겨 스스로 멈춥니다(`alive()`). 새로고침해야 다시 동작합니다. 개발 중 확장 프로그램을 새로고침한 뒤 열려 있던 저장소 탭의 아이콘이 바뀌지 않는 것으로 발견했고, 페이지를 새로고침한 뒤 같은 CI를 다시 실행해 기능 자체는 정상임을 확인했습니다. Web Store 사용자는 자동 업데이트 때마다 같은 일을 겪습니다.
+>
+> **선택지**
+>
+> | 선택지 | 단점 |
+> |---|---|
+> | A. 알려진 한계로 기록 | 업데이트 직후 열린 탭이 이유 없이 멈춘 것처럼 보임 |
+> | **B. 설치·업데이트 직후 열린 GitHub 탭에 content script를 다시 실행** | `scripting` 권한이 필요함 |
+> | C. 멈춘 content script가 "새로고침하세요" 안내 표시 | 권한은 그대로지만 새로고침은 여전히 사용자 몫 |
+>
+> **결정**: B. `onInstalled`(설치·업데이트)에서 `https://github.com/*` 탭을 찾아(`tabs.query`의 URL 조건은 host permission으로 충분해 `tabs` 권한 불필요) 빌드된 manifest의 content script 파일을 `scripting.executeScript`로 실행합니다. 파일 이름은 번들러가 해시를 붙이므로 `runtime.getManifest()`에서 읽습니다. 버려진 탭이나 오류 페이지는 실패해도 무시합니다(다음에 불러올 때 들어감).
+>
+> **근거**: Chrome [권한 목록](https://developer.chrome.com/docs/extensions/reference/permissions-list)에서 `scripting`은 **경고 문구가 없는 권한**이고, [권한 경고 문서](https://developer.chrome.com/docs/extensions/develop/concepts/permission-warnings)에 따르면 업데이트 시 확장 프로그램이 꺼지고 재승인을 받는 것은 경고가 있는 권한을 추가할 때뿐입니다. 사용자가 보는 경고("github.com의 데이터 읽기 및 변경")는 이미 있는 host permission에서 나오며 그대로입니다. 넣을 수 있는 페이지도 host permission 범위(github.com)로 제한되어 접근 범위가 넓어지지 않습니다.
+>
+> **동작 세부**: 이전 버전의 content script는 다음 DOM 변경 때 스스로 정리(`teardown`)하면서 같은 id의 배너와 아이콘 스타일을 지울 수 있습니다. 새 content script는 그 변경을 감지해 바로 다시 그리므로 잠깐 깜빡일 수 있지만 남지는 않습니다. 같은 탭에서 이미 실행 중인 같은 버전에 다시 실행해도, 로더가 불러오는 모듈은 브라우저가 한 번만 실행하므로 중복되지 않습니다.
+>
+> **Web Store 심사용 사유**: "Re-runs the content script in already-open GitHub tabs right after install or update, so progress keeps updating without a page refresh."
+
 ---
 
 ### D11. 빌드 도구: Vite + CRXJS
@@ -1408,3 +1428,4 @@ sequenceDiagram
 | 2026-10-07 | 7장: port 연결이 끊길 때 `runtime.lastError`를 읽어 확장 프로그램 오류 화면에 경고가 쌓이지 않게 함 |
 | 2026-10-07 | D4 변경: ETag 캐시에 쓰는 필드만 저장(run 목록 255KB → 11KB)하고 전체 2MB 상한. 5·8장 갱신 |
 | 2026-10-07 | D14 XSS 정책 변경: API에서 받은 링크를 저장 전에 github.com 페이지인지 검사. 페이지 판별이 잘못된 % 인코딩에서 예외를 던지던 버그 수정. 8장 갱신 |
+| 2026-10-07 | D10 변경: `scripting` 권한 추가, 설치·업데이트 직후 열린 GitHub 탭에 content script 다시 실행 |

@@ -77,6 +77,7 @@ npm run build
      - `storage`: 로그인 토큰, 감시 저장소, 마지막 run 상태 저장
      - `alarms`: 주기적으로 GitHub API를 조회해 진행도 갱신
      - `notifications`: run 완료/실패 알림
+     - `scripting`: 설치·업데이트 직후 이미 열린 GitHub 탭에 진행 바 코드를 다시 실행 (새로고침 없이 계속 갱신)
      - `https://api.github.com/*`: 워크플로 run/job 조회
      - `https://github.com/*`: OAuth Device Flow 로그인 엔드포인트, PR·코드·Actions 화면에 진행 바 표시(content script)
    - Remote code: 사용 안 함

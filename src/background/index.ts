@@ -403,8 +403,35 @@ chrome.notifications.onClicked.addListener((id) => {
 chrome.runtime.onInstalled.addListener(async ({ reason }) => {
   await schedule(false)
   if (reason === chrome.runtime.OnInstalledReason.INSTALL) chrome.runtime.openOptionsPage()
+  if (reason === chrome.runtime.OnInstalledReason.INSTALL || reason === chrome.runtime.OnInstalledReason.UPDATE) {
+    injectIntoOpenTabs()
+  }
   poll()
 })
+
+/**
+ * Chrome runs content scripts only in pages loaded after the extension is installed, and an
+ * update cuts off the copies in open tabs (they stop themselves, see alive() in
+ * content/index.ts). Without this, GitHub tabs open at install or after an automatic update
+ * would show nothing new until refreshed. The files come from the built manifest because
+ * the bundler names them with content hashes.
+ */
+async function injectIntoOpenTabs() {
+  for (const script of chrome.runtime.getManifest().content_scripts ?? []) {
+    if (!script.js?.length || !script.matches?.length) continue
+    const tabs = await chrome.tabs.query({ url: script.matches })
+    await Promise.all(
+      tabs.map(async (tab) => {
+        if (tab.id === undefined) return
+        try {
+          await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: script.js! })
+        } catch {
+          // a discarded tab or an error page: it gets the script when it loads again
+        }
+      }),
+    )
+  }
+}
 
 chrome.runtime.onStartup.addListener(() => {
   poll()
