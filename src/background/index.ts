@@ -59,6 +59,7 @@ async function signOut(reason: ErrorInfo) {
   await Promise.all([
     setItem('auth', null),
     setItem('runs', {}),
+    setItem('commits', {}),
     setItem('httpCache', {}),
     updateItem('meta', (m) => ({ ...m, lastError: reason })),
   ])
@@ -128,6 +129,8 @@ async function doPoll() {
   if (!auth || repos.size === 0) {
     lastRuns = []
     if (Object.keys(prevRuns).length) await setItem('runs', {})
+    // nothing is polled for them any more; keep no state that pages would keep drawing
+    await setItem('commits', {})
     await refreshBadge({}, meta, settings, auth?.login)
     await schedule(false)
     return

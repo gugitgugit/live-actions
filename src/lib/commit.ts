@@ -1,6 +1,6 @@
 import { isActive } from './progress'
 import { FAILED_CONCLUSIONS } from './status'
-import type { ApiRun } from './types'
+import type { ApiRun, CommitInfo } from './types'
 
 /** The three states GitHub's commit status badge shows. */
 export type BadgeState = 'pending' | 'success' | 'failure'
@@ -64,4 +64,18 @@ export function predictBadge(
   else if (actionsNow === 'pending' || otherPending) next = 'pending'
   else next = 'success'
   return next === nativeAtLoad ? null : next
+}
+
+/**
+ * How old a commit's Actions state may be and still be drawn over GitHub's badge. A tab that
+ * shows the commit is polled every 10 s (2.5 s near the end of a run), so anything older
+ * means polling has stopped: signed out, rate limited, offline. GitHub's own badge, stale as
+ * it may be, is then the more honest thing to show than our last word.
+ */
+export const COMMIT_STATE_MAX_AGE_MS = 60_000
+
+/** The Actions state to draw, or undefined when there is none or it is too old to trust. */
+export function freshActions(info: CommitInfo | undefined, now: number): BadgeState | null | undefined {
+  if (!info || now - info.fetchedAt > COMMIT_STATE_MAX_AGE_MS) return undefined
+  return info.actions
 }
