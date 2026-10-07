@@ -1,5 +1,5 @@
 import { AuthError, isTransientRefreshError, needsRefresh, refreshAuth } from '../lib/auth'
-import { errorText, type ErrorInfo } from '../lib/errors'
+import { errorText, isBackedOff, type ErrorInfo } from '../lib/errors'
 import { GitHubClient, GitHubError, HttpCache } from '../lib/github'
 import { t, type MessageKey } from '../lib/i18n'
 import { latestPerWorkflowEvent, rollup } from '../lib/commit'
@@ -152,8 +152,17 @@ async function doPoll() {
   let unauthorized: string | null = null
   let lastError: ErrorInfo | null = null
 
+  const retryAll = retryInaccessible
+  retryInaccessible = false
+
   await Promise.all(
     [...repos].map(async (fullName) => {
+      const prevError = meta.repoErrors[fullName]
+      if (!retryAll && isBackedOff(prevError, now)) {
+        // keep showing why (the page's install hint) without asking GitHub again yet
+        repoErrors[fullName] = prevError as ErrorInfo
+        return
+      }
       try {
         if (viewed.has(fullName)) {
           await refreshRepoInfo(client, fullName, repoInfo, now)
@@ -200,7 +209,8 @@ async function doPoll() {
           unauthorized = e.message
           return
         }
-        repoErrors[fullName] = describeError(e)
+        const info = describeError(e)
+        repoErrors[fullName] = info.code === 'not_found' ? { ...info, at: now } : info
         // keep what we had so the UI does not flash empty on a transient error
         for (const [key, run] of Object.entries(prevRuns)) {
           if (run.repo === fullName) nextRuns[key] = run
@@ -444,8 +454,14 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM) poll()
 })
 
+/** set when settings or sign-in change, so repositories left alone after a 404 are asked again */
+let retryInaccessible = false
+
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && ('settings' in changes || 'auth' in changes)) poll(true)
+  if (area === 'local' && ('settings' in changes || 'auth' in changes)) {
+    retryInaccessible = true
+    poll(true)
+  }
 })
 
 chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {

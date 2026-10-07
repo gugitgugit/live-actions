@@ -10,6 +10,21 @@ export interface ErrorInfo {
   status?: number
   /** GitHub's own message, which stays in English */
   detail?: string
+  /** epoch ms when it happened; set for `not_found`, see isBackedOff */
+  at?: number
+}
+
+/**
+ * How long a repository that answered 404 is left alone. The GitHub App cannot see a private
+ * repository it is not installed on, and a 404 is not a 304: each one counts against the
+ * rate limit, every 10 s while such a page is in view. Installing the app there shows up
+ * within this time; changing settings retries right away.
+ */
+export const NOT_FOUND_RETRY_MS = 5 * 60_000
+
+/** true while a repository's last 404 is recent enough not to ask again */
+export function isBackedOff(e: ErrorInfo | string | null | undefined, now: number): boolean {
+  return typeof e === 'object' && e?.code === 'not_found' && e.at !== undefined && now - e.at < NOT_FOUND_RETRY_MS
 }
 
 /** Plain strings are errors saved by versions before 2026-10-06. */
