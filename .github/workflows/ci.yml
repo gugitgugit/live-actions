@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # GitHub가 PR 이벤트를 놓쳐 CI가 안 돌았을 때 브랜치를 골라 직접 실행
+  workflow_dispatch:
 
 permissions:
   contents: read
