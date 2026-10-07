@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { computeProgress, formatDuration, progressSummary, stepCeiling, stepRatio, summarizeJobs } from './progress'
-import type { ApiJob, ApiRun, JobSummary, WorkflowHistory } from './types'
+import { computeProgress, formatDuration, progressSummary, timeLabel, stepCeiling, stepRatio, summarizeJobs } from './progress'
+import type { ApiJob, ApiRun, JobSummary, Progress, WorkflowHistory } from './types'
 
 /** history with a run total only, no per-job figures: the whole-run fallback */
 const whole = (totalMs: number): WorkflowHistory => ({ totalMs, jobs: {} })
@@ -160,5 +160,40 @@ describe('progressSummary', () => {
 
   it('falls back to the job count before steps are reported', () => {
     expect(progressSummary([job({})])).toBe('Jobs 0/1')
+  })
+})
+
+describe('timeLabel', () => {
+  const p = (over: Partial<Progress>): Progress => ({
+    ratio: 0.5,
+    jobsDone: 0,
+    jobsTotal: 1,
+    elapsedMs: 40_000,
+    estimateMs: 20_000,
+    remainingMs: 5000,
+    overtime: false,
+    overdueMs: 0,
+    ...over,
+  })
+
+  it('shows time left while there is some', () => {
+    expect(timeLabel(p({}), false)).toBe('~5s left')
+    // a slow step still has steps after it: not finishing yet
+    expect(timeLabel(p({ overtime: true, overdueMs: 10_000 }), false)).toBe('~5s left')
+  })
+
+  it('says finishing up, without a number, once the estimate is used up', () => {
+    expect(timeLabel(p({ remainingMs: 0, overtime: true, overdueMs: 3000 }), false)).toBe('Finishing up…')
+    expect(timeLabel(p({ remainingMs: 300 }), false)).toBe('Finishing up…')
+  })
+
+  it('says slower than usual only when well past the usual duration', () => {
+    expect(timeLabel(p({ remainingMs: 0, overtime: true, overdueMs: 30_001 }), false)).toBe('40s · slower than usual')
+    expect(timeLabel(p({ remainingMs: 8000, overtime: true, overdueMs: 45_000 }), false)).toBe('40s · slower than usual')
+  })
+
+  it('shows elapsed time without history and while queued', () => {
+    expect(timeLabel(p({ remainingMs: null, estimateMs: null }), false)).toBe('40s')
+    expect(timeLabel(p({}), true)).toBe('queued 40s')
   })
 })

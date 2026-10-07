@@ -3,7 +3,7 @@ import { errorText, type ErrorInfo } from '../lib/errors'
 import { isCounted } from '../lib/filters'
 import { t } from '../lib/i18n'
 import { POPUP_PORT, send } from '../lib/messages'
-import { formatDuration, isActive, progressSummary, runProgress } from '../lib/progress'
+import { formatDuration, isActive, progressSummary, runProgress, timeLabel } from '../lib/progress'
 import type { TrackedRun } from '../lib/types'
 import { StatusIcon, toneOf } from '../shared/StatusIcon'
 import { timeAgo, useNow, useStorage } from '../shared/useStorage'
@@ -187,15 +187,7 @@ function ActiveRun({ run, now }: { run: TrackedRun; now: number }) {
               ? t('waitingForRunner')
               : progressSummary(run.jobs)}
           </span>
-          <span className="run-time">
-            {tone === 'queued'
-              ? t('queuedFor', formatDuration(p.elapsedMs))
-              : p.remainingMs !== null && !p.overtime
-              ? t('timeLeft', formatDuration(p.remainingMs))
-              : p.overtime
-                ? t('slowerThanUsual', formatDuration(p.elapsedMs))
-                : formatDuration(p.elapsedMs)}
-          </span>
+          <span className="run-time">{timeLabel(p, tone === 'queued')}</span>
         </div>
       </a>
       {run.jobs.length > 0 && (

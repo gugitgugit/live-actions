@@ -128,6 +128,29 @@ export function runProgress(run: TrackedRun, now: number): Progress {
   )
 }
 
+/**
+ * How far past the usual duration a run can be and still count as finishing. The end is
+ * noticed late: GitHub marks a run completed 1 to 6 seconds after its last job, and the next
+ * poll can be 2.5 s away (D3), while the clock keeps running. Same window as "finishing" in D3.
+ */
+const WRAP_UP_GRACE_MS = 30_000
+
+/**
+ * The time shown next to a running bar:
+ * - time left while there is some
+ * - "finishing up" once the estimate is used up but the end has not been seen yet (no number:
+ *   it would keep counting past the real end, which is noticed a few seconds late)
+ * - elapsed time and "slower than usual" only when well past the usual duration
+ */
+export function timeLabel(p: Progress, queued: boolean): string {
+  if (queued) return t('queuedFor', formatDuration(p.elapsedMs))
+  if (p.overdueMs > WRAP_UP_GRACE_MS) return t('slowerThanUsual', formatDuration(p.elapsedMs))
+  if (p.remainingMs === null) return formatDuration(p.elapsedMs)
+  // under half a second would read "0 s left"
+  if (p.remainingMs < 500) return t('finishingUp')
+  return t('timeLeft', formatDuration(p.remainingMs))
+}
+
 export function formatDuration(ms: number): string {
   const totalSec = Math.round(ms / 1000)
   const h = Math.floor(totalSec / 3600)

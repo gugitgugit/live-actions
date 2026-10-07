@@ -164,6 +164,9 @@
       }
     }
   },
+  "finishingUp": {
+    "message": "Finishing up…"
+  },
   "runProgressAria": {
     "message": "$NAME$ progress",
     "placeholders": {
