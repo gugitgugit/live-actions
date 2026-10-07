@@ -67,7 +67,7 @@ function Account({ auth, lastError }: { auth: AuthState | null; lastError: Error
           <button
             className="btn btn-danger"
             onClick={async () => {
-              await Promise.all([setItem('auth', null), setItem('runs', {}), setItem('httpCache', {})])
+              await Promise.all([setItem('auth', null), setItem('runs', {}), setItem('commits', {}), setItem('httpCache', {})])
             }}
           >
             {t('signOut')}

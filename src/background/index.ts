@@ -471,8 +471,9 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
       poll(true).then(() => sendResponse({ ok: true }))
       return true
     case 'getToken':
-      // only extension pages; content scripts run inside github.com tabs (sender.tab is set)
-      if (sender.tab) return
+      // only extension pages. Checked by the sender's URL, not sender.tab: the settings page
+      // opens in a tab too, while content scripts report the github.com page they run in.
+      if (!sender.url?.startsWith(chrome.runtime.getURL(''))) return
       getToken().then(
         (token) => sendResponse({ token } satisfies TokenResponse),
         (e: unknown) => sendResponse({ error: errorText(describeError(e)) } satisfies TokenResponse),

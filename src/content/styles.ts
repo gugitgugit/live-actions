@@ -58,6 +58,9 @@ a { color: inherit; text-decoration: none; }
   max-width: 1280px;
   margin: 16px auto 0;
   padding: 0 16px;
+  /* Korean breaks between words, not in the middle of one */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 @media (min-width: 768px) { .banner { padding: 0 24px; } }
 @media (min-width: 1012px) { .banner { padding: 0 32px; } }
