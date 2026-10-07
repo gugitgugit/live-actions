@@ -42,7 +42,7 @@ describe('t without chrome.i18n', () => {
 
   it('splits a sentence around its placeholder', () => {
     expect(tAround('signedInAs')).toEqual(['Signed in as ', ''])
-    expect(tAround('installHint')).toEqual(["Actions Pulse can't see this repository's runs. To track them, ", '.'])
+    expect(tAround('installHint')).toEqual(["Actions Pulse can't see this private repository. To track it, ", '.'])
   })
 
   describe('with Korean from chrome.i18n', () => {

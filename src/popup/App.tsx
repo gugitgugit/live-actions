@@ -6,6 +6,7 @@ import { POPUP_PORT, send } from '../lib/messages'
 import { formatDuration, isActive, progressSummary, runProgress, timeLabel } from '../lib/progress'
 import type { TrackedRun } from '../lib/types'
 import { StatusIcon, toneOf } from '../shared/StatusIcon'
+import { GitHubMark } from '../shared/GitHubMark'
 import { timeAgo, useNow, useStorage } from '../shared/useStorage'
 
 export function App() {
@@ -86,6 +87,7 @@ export function App() {
           title={t('connectTitle')}
           body={t('connectBody')}
           action={t('signInWithGitHub')}
+          github
           error={meta.lastError}
         />
       ) : settings.repos.length === 0 ? (
@@ -241,11 +243,14 @@ function EmptyState({
   title,
   body,
   action,
+  github = false,
   error,
 }: {
   title: string
   body: string
   action: string
+  /** styled as GitHub's own sign-in button */
+  github?: boolean
   error?: ErrorInfo | string | null
 }) {
   return (
@@ -254,7 +259,8 @@ function EmptyState({
       <h2>{title}</h2>
       <p className="muted">{body}</p>
       {error && <p className="error">{errorText(error)}</p>}
-      <button className="btn btn-primary" onClick={() => chrome.runtime.openOptionsPage()}>
+      <button className={`btn ${github ? 'btn-github' : 'btn-primary'}`} onClick={() => chrome.runtime.openOptionsPage()}>
+        {github && <GitHubMark />}
         {action}
       </button>
     </div>
