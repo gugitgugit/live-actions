@@ -1,6 +1,9 @@
 {
   "extName": {
-    "message": "Actions Pulse"
+    "message": "Live Actions for GitHub"
+  },
+  "appName": {
+    "message": "Live Actions"
   },
   "extDescription": {
     "message": "Watch GitHub Actions workflow progress at a glance — live progress bars inside GitHub, a badge and completion notifications."
@@ -193,7 +196,7 @@
     }
   },
   "installHint": {
-    "message": "Actions Pulse can't see this private repository. To track it, $LINK$.",
+    "message": "Live Actions can't see this private repository. To track it, $LINK$.",
     "placeholders": {
       "link": {
         "content": "$1"
@@ -231,7 +234,7 @@
     "message": "Finished"
   },
   "badgeTitleRunning": {
-    "message": "Actions Pulse — $COUNT$ running",
+    "message": "Live Actions — $COUNT$ running",
     "placeholders": {
       "count": {
         "content": "$1"
@@ -352,13 +355,13 @@
     }
   },
   "settingsPageTitle": {
-    "message": "Actions Pulse Settings"
+    "message": "Live Actions Settings"
   },
   "tagline": {
     "message": "Live progress for your GitHub Actions workflows."
   },
   "privacyFooter": {
-    "message": "Your token is stored only in this browser and is sent only to GitHub. Actions Pulse has no server and collects no data."
+    "message": "Your token is stored only in this browser and is sent only to GitHub. Live Actions has no server and collects no data."
   },
   "account": {
     "message": "Account"
@@ -439,7 +442,7 @@
     "message": "Runs in these repositories show up in the popup, badge and notifications. Progress bars on GitHub pages appear without adding anything here."
   },
   "accessNoteApp": {
-    "message": "Public repositories work right away. Private ones need access granted to Actions Pulse on GitHub."
+    "message": "Public repositories work right away. Private ones need access granted to Live Actions on GitHub."
   },
   "accessNotePat": {
     "message": "Public repositories work right away. Private ones show up only if your token has access to them."

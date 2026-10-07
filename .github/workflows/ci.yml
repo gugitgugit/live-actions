@@ -43,6 +43,6 @@ jobs:
       - name: Upload extension build
         uses: actions/upload-artifact@v7
         with:
-          name: actions-pulse-${{ github.sha }}
+          name: live-actions-${{ github.sha }}
           path: dist/
           retention-days: 14

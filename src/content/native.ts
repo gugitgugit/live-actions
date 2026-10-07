@@ -6,7 +6,7 @@ import { badgeFromOcticon, predictBadge, type BadgeState } from '../lib/commit'
 // the original icon and draws ours in its place with ::before. GitHub's elements are only
 // read, never written.
 
-const STYLE_ID = 'actions-pulse-native'
+const STYLE_ID = 'live-actions-native'
 const BOX = '[data-testid="latest-commit"]'
 const BADGE = '[data-testid="checks-status-badge-icon"]'
 const SHA = /\/commit\/([0-9a-f]{40})(?:[/?#]|$)/

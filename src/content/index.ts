@@ -14,8 +14,8 @@ import { createShadowHost, renderBanner, renderRowBar } from './render'
 // events this re-checks the URL and our mount points whenever the DOM changes, and makes
 // every render idempotent.
 
-const BANNER_ID = 'actions-pulse-banner'
-const ROW_CLASS = 'actions-pulse-row'
+const BANNER_ID = 'live-actions-banner'
+const ROW_CLASS = 'live-actions-row'
 /** GitHub's repository content container, present on code, pull request and Actions pages */
 const ANCHOR = '#repo-content-pjax-container'
 /** code pages: the branch picker in the toolbar and the latest-commit box at the top of the file list */
@@ -325,7 +325,7 @@ function renderActionsRows(ctx: Extract<PageContext, { kind: 'actions' }>, now: 
     if (!cell) continue
     let host = cell.querySelector<HTMLElement>(`:scope > .${ROW_CLASS}`)
     if (!host) {
-      host = createShadowHost(`actions-pulse-run-${run.id}`, ROW_CLASS)
+      host = createShadowHost(`live-actions-run-${run.id}`, ROW_CLASS)
       cell.append(host)
     }
     keep.add(host)

@@ -1,6 +1,9 @@
 {
   "extName": {
-    "message": "Actions Pulse"
+    "message": "Live Actions for GitHub"
+  },
+  "appName": {
+    "message": "Live Actions"
   },
   "extDescription": {
     "message": "GitHub Actions 워크플로 진행 상황을 한눈에 — GitHub 화면 안 실시간 진행 바, 배지, 완료 알림."
@@ -193,7 +196,7 @@
     }
   },
   "installHint": {
-    "message": "Actions Pulse가 이 비공개 저장소를 볼 수 없어요. 추적하려면 $LINK$.",
+    "message": "Live Actions가 이 비공개 저장소를 볼 수 없어요. 추적하려면 $LINK$.",
     "placeholders": {
       "link": {
         "content": "$1"
@@ -231,7 +234,7 @@
     "message": "완료"
   },
   "badgeTitleRunning": {
-    "message": "Actions Pulse — $COUNT$개 실행 중",
+    "message": "Live Actions — $COUNT$개 실행 중",
     "placeholders": {
       "count": {
         "content": "$1"
@@ -352,13 +355,13 @@
     }
   },
   "settingsPageTitle": {
-    "message": "Actions Pulse 설정"
+    "message": "Live Actions 설정"
   },
   "tagline": {
     "message": "GitHub Actions 워크플로 진행 상황을 실시간으로."
   },
   "privacyFooter": {
-    "message": "토큰은 이 브라우저에만 저장되고 GitHub에만 전송돼요. Actions Pulse는 서버가 없고 어떤 데이터도 수집하지 않아요."
+    "message": "토큰은 이 브라우저에만 저장되고 GitHub에만 전송돼요. Live Actions는 서버가 없고 어떤 데이터도 수집하지 않아요."
   },
   "account": {
     "message": "계정"
@@ -439,7 +442,7 @@
     "message": "고른 저장소의 실행은 팝업·배지·알림으로 알려 드려요. GitHub 페이지 안 진행 바는 고르지 않아도 보여요."
   },
   "accessNoteApp": {
-    "message": "공개 저장소는 바로 볼 수 있어요. 비공개 저장소는 GitHub에서 Actions Pulse의 접근을 허용해야 해요."
+    "message": "공개 저장소는 바로 볼 수 있어요. 비공개 저장소는 GitHub에서 Live Actions의 접근을 허용해야 해요."
   },
   "accessNotePat": {
     "message": "공개 저장소는 바로 볼 수 있어요. 비공개 저장소는 토큰에 권한을 준 것만 보여요."

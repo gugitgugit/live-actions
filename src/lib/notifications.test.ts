@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { runNotificationId, urlFromNotificationId } from './notifications'
 
-const url = 'https://github.com/gugitgugit/actions-pulse/actions/runs/37403789339'
+const url = 'https://github.com/gugitgugit/live-actions/actions/runs/37403789339'
 
 describe('runNotificationId', () => {
   it('differs for re-runs of the same run', () => {

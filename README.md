@@ -1,4 +1,4 @@
-# Actions Pulse
+# Live Actions for GitHub
 
 GitHub Actions 워크플로 진행도를 GitHub 페이지 안과 툴바에서 바로 보여주는 Chrome 확장 프로그램 (Manifest V3).
 
@@ -68,7 +68,7 @@ npm run build
 
 ## Chrome Web Store 배포 체크리스트
 
-1. `package.json`의 `version` 올리기 → `npm run zip` → `actions-pulse-<version>.zip`
+1. `package.json`의 `version` 올리기 → `npm run zip` → `live-actions-<version>.zip`
 2. [개발자 대시보드](https://chrome.google.com/webstore/devconsole) 등록 (최초 1회 등록비 $5)
 3. 스토어 등록 정보: 설명, 스크린샷 1280×800, 작은 프로모션 타일 440×280
 4. **Privacy practices** 탭
