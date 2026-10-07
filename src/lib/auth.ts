@@ -15,6 +15,8 @@ export class AuthError extends Error {
   constructor(
     public code: string,
     message?: string,
+    /** HTTP status, for code `http_error` */
+    public status?: number,
   ) {
     super(message ?? code)
   }
@@ -46,7 +48,7 @@ async function postForm<T>(url: string, body: Record<string, string>): Promise<T
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new AuthError('http_error', `GitHub responded with ${res.status}`)
+  if (!res.ok) throw new AuthError('http_error', `GitHub responded with ${res.status}`, res.status)
   return (await res.json()) as T
 }
 
@@ -106,6 +108,18 @@ export async function refreshAuth(auth: AuthState): Promise<AuthState> {
   })
   if (!data.access_token) throw new AuthError(data.error ?? 'refresh_failed', data.error_description)
   return { ...toAuthState(data), login: auth.login }
+}
+
+/**
+ * A refresh that failed for a reason that may pass: offline (fetch rejects with a TypeError,
+ * as right after the computer wakes up and before the network is back), or GitHub having
+ * trouble. The refresh token is still good then, so signing out would throw away a session
+ * that the next poll could have renewed. Anything else (an expired or rejected refresh
+ * token, GitHub's `bad_refresh_token` and similar) ends the session.
+ */
+export function isTransientRefreshError(e: unknown): boolean {
+  if (e instanceof TypeError) return true
+  return e instanceof AuthError && e.code === 'http_error' && (e.status === undefined || e.status >= 500 || e.status === 429)
 }
 
 /** true when the token expires within the next 5 minutes */
