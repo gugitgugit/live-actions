@@ -5,6 +5,7 @@ import { parsePage, runsForPage, type PageContext } from '../lib/page'
 import { isActive } from '../lib/progress'
 import { getItem, onItemChanged, type StorageSchema } from '../lib/storage'
 import { COMMIT_STATE_MAX_AGE_MS, freshActions } from '../lib/commit'
+import { timeAgoChangesIn } from '../lib/format'
 import { readLatestCommitSha, removeNativeBadge, syncNativeBadge } from './native'
 import { createShadowHost, renderBanner, renderRowBar } from './render'
 
@@ -59,7 +60,7 @@ function teardown() {
   observer?.disconnect()
   alignObserver?.disconnect()
   if (ticker) clearInterval(ticker)
-  if (expiryTimer) clearTimeout(expiryTimer)
+  if (wakeTimer) clearTimeout(wakeTimer)
   document.getElementById(BANNER_ID)?.remove()
   document.querySelectorAll(`.${ROW_CLASS}`).forEach((n) => n.remove())
   removeNativeBadge()
@@ -151,13 +152,14 @@ function update() {
 function render() {
   const now = Date.now()
   let animating = false
+  wakeAt = Infinity
 
   if (state?.settings.inPage && ctx?.kind === 'code' && sha) {
     const key = `${ctx.repo}@${sha}`
     const info = state.commits[key]
     syncNativeBadge(key, sha, freshActions(info, now))
     // polling may stop without another storage change; look again once this state expires
-    if (info) expireAt(info.fetchedAt + COMMIT_STATE_MAX_AGE_MS + 1, now)
+    if (info) wakeBy(info.fetchedAt + COMMIT_STATE_MAX_AGE_MS + 1)
   } else {
     removeNativeBadge()
   }
@@ -180,12 +182,21 @@ function render() {
     clearInterval(ticker)
     ticker = null
   }
+
+  // otherwise render once more when something shown would change ("12 s ago", a stale badge);
+  // a hidden tab renders again when it becomes visible
+  if (wakeTimer) clearTimeout(wakeTimer)
+  wakeTimer = null
+  if (!ticker && wakeAt !== Infinity && document.visibilityState === 'visible') {
+    wakeTimer = setTimeout(schedule, Math.max(0, wakeAt - now))
+  }
 }
 
-let expiryTimer: ReturnType<typeof setTimeout> | null = null
-function expireAt(at: number, now: number) {
-  if (expiryTimer) clearTimeout(expiryTimer)
-  expiryTimer = at > now ? setTimeout(schedule, at - now) : null
+/** earliest time something on the page needs another render, collected during render() */
+let wakeAt = Infinity
+let wakeTimer: ReturnType<typeof setTimeout> | null = null
+function wakeBy(at: number) {
+  wakeAt = Math.min(wakeAt, at)
 }
 
 function renderBannerFor(ctx: Extract<PageContext, { kind: 'pr' | 'code' }>, now: number): boolean {
@@ -237,6 +248,9 @@ function renderBannerFor(ctx: Extract<PageContext, { kind: 'pr' | 'code' }>, now
     { runs: page.primary, othersActive: page.othersActive, actionsUrl: `https://github.com/${ctx.repo}/actions`, installUrl },
     now,
   )
+  for (const run of page.primary) {
+    if (!isActive(run.status)) wakeBy(now + timeAgoChangesIn(Date.parse(run.updatedAt), now))
+  }
   return page.primary.some((r) => isActive(r.status))
 }
 

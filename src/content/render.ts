@@ -174,7 +174,8 @@ function updateBannerRow(row: HTMLLIElement, run: TrackedRun, now: number) {
   } else {
     bar.hidden = true
     const result = t(RESULT_LABEL[run.conclusion ?? ''] ?? 'resultFinished')
-    const when = run.completedAt ? ` · ${timeAgo(run.completedAt, now)}` : ''
+    // when GitHub finished it, not when a poll noticed (a few seconds later)
+    const when = ` · ${timeAgo(Date.parse(run.updatedAt), now)}`
     setText(meta, `${t('resultIn', result, formatDuration(run.progress.elapsedMs))}${when}`)
     row.classList.add('done')
   }
