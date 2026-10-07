@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import en from '../../public/_locales/en/messages.json'
 import ko from '../../public/_locales/ko/messages.json'
 import { t, tAround } from './i18n'
@@ -43,5 +43,20 @@ describe('t without chrome.i18n', () => {
   it('splits a sentence around its placeholder', () => {
     expect(tAround('signedInAs')).toEqual(['Signed in as ', ''])
     expect(tAround('installHint')).toEqual(["Actions Pulse can't see this repository's runs. To track them, ", '.'])
+  })
+
+  describe('with Korean from chrome.i18n', () => {
+    afterEach(() => vi.unstubAllGlobals())
+
+    it('keeps the placeholder where the Korean sentence puts it', () => {
+      // like Chrome: fills $1 and, as observed in the browser, drops U+0000 from substitutions
+      const getMessage = (key: string, args: string[]) => {
+        const entry = (ko as Messages)[key]
+        const sub = (args[0] ?? '').replaceAll('\u0000', '')
+        return entry.message.replace(/\$[A-Za-z0-9_]+\$/g, sub)
+      }
+      vi.stubGlobal('chrome', { i18n: { getMessage } })
+      expect(tAround('signedInAs')).toEqual(['', ' 계정으로 로그인됨'])
+    })
   })
 })

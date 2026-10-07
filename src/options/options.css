@@ -211,7 +211,8 @@ input[type='radio'] {
 .page-footer {
   font-size: 12px;
   text-align: center;
-  padding: 0 24px;
+  /* as wide as the cards above; when it needs two lines, make them about even */
+  text-wrap: balance;
 }
 .indent {
   margin: -6px 0 2px 24px;
