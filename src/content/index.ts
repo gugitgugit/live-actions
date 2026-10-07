@@ -77,6 +77,8 @@ function syncPort() {
     }
     sent = undefined
     port.onDisconnect.addListener(() => {
+      // read the reason (service worker restart, back/forward cache) so Chrome does not log it as unchecked
+      void chrome.runtime.lastError
       port = null
       // the service worker restarted; reconnect if still wanted
       setTimeout(syncPort, 1000)

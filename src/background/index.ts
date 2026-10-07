@@ -467,6 +467,7 @@ chrome.runtime.onConnect.addListener((port) => {
     updateFastPolling()
     poll()
     port.onDisconnect.addListener(() => {
+      readDisconnectError()
       popupPorts--
       updateFastPolling()
     })
@@ -486,6 +487,7 @@ chrome.runtime.onConnect.addListener((port) => {
       if (msg.repo && (msg.repo !== before?.repo || sha !== before?.sha)) poll(true)
     })
     port.onDisconnect.addListener(() => {
+      readDisconnectError()
       pagePorts.delete(port)
       updateFastPolling()
     })
@@ -519,6 +521,16 @@ function pokePoll() {
 }
 
 // ---------- helpers ----------
+
+/**
+ * Chrome closes a port with a reason in `runtime.lastError` when the other side goes away
+ * abnormally, e.g. a GitHub tab moving into the back/forward cache. A disconnect is expected
+ * and handled either way, but a reason nobody reads is logged as "Unchecked
+ * runtime.lastError" on the extensions page, so read it.
+ */
+function readDisconnectError() {
+  void chrome.runtime.lastError
+}
 
 function runKey(repo: string, id: number) {
   return `${repo}#${id}`
