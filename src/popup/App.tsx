@@ -232,7 +232,7 @@ function RecentRun({ run, now }: { run: TrackedRun; now: number }) {
           <span className="muted"> · {run.repo}</span>
         </span>
         <span className="muted recent-time">
-          {formatDuration(run.progress.elapsedMs)} · {run.completedAt ? timeAgo(run.completedAt, now) : ''}
+          {formatDuration(run.progress.elapsedMs)} · {timeAgo(Date.parse(run.updatedAt), now)}
         </span>
       </a>
     </li>
