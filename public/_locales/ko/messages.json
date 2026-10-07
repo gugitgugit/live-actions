@@ -164,6 +164,9 @@
       }
     }
   },
+  "finishingUp": {
+    "message": "마무리 중…"
+  },
   "runProgressAria": {
     "message": "$NAME$ 진행률",
     "placeholders": {
