@@ -1,5 +1,6 @@
 import { executionStart, remainingByJobs } from './estimate'
 import { t } from './i18n'
+import { githubUrl } from './url'
 import type { ApiJob, ApiRun, ApiRunStatus, JobSummary, Progress, TrackedRun, WorkflowHistory } from './types'
 
 export const ACTIVE_STATUSES: ReadonlySet<ApiRunStatus> = new Set([
@@ -23,7 +24,7 @@ export function summarizeJobs(jobs: ApiJob[]): JobSummary[] {
       name: job.name,
       status: job.status,
       conclusion: job.conclusion,
-      htmlUrl: job.html_url,
+      htmlUrl: githubUrl(job.html_url),
       stepsDone: steps.filter((s) => s.status === 'completed').length,
       stepsTotal: steps.length,
       currentStep: current?.name ?? null,

@@ -1,4 +1,5 @@
 import type { AuthState } from './types'
+import { githubUrl } from './url'
 
 // GitHub App OAuth device flow. No client secret is needed: GitHub allows both the
 // token exchange and refreshing device-flow tokens with the client ID alone.
@@ -64,10 +65,13 @@ export async function requestDeviceCode(): Promise<DeviceCode> {
     error_description?: string
   }>(DEVICE_CODE_URL, { client_id: CLIENT_ID })
   if (data.error) throw new AuthError(data.error, data.error_description)
+  // opened in a new tab; the code is entered on github.com only
+  const verificationUri = githubUrl(data.verification_uri)
+  if (!verificationUri) throw new AuthError('unexpected_response', 'Unexpected verification URL')
   return {
     deviceCode: data.device_code,
     userCode: data.user_code,
-    verificationUri: data.verification_uri,
+    verificationUri,
     expiresAt: Date.now() + data.expires_in * 1000,
     interval: data.interval,
   }

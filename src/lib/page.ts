@@ -30,7 +30,13 @@ export function parsePage(href: string): PageContext | null {
     return null
   }
   if (url.hostname !== 'github.com') return null
-  const parts = url.pathname.split('/').filter(Boolean).map(decodeURIComponent)
+  let parts: string[]
+  try {
+    parts = url.pathname.split('/').filter(Boolean).map(decodeURIComponent)
+  } catch {
+    // a malformed escape such as "%zz" typed into the address bar: not a page we know
+    return null
+  }
   const [owner, name, section, ...rest] = parts
   if (!owner || !name || RESERVED_OWNERS.has(owner.toLowerCase()) || !NAME.test(owner) || !NAME.test(name)) {
     return null
