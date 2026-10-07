@@ -33,7 +33,8 @@ export default defineManifest({
       run_at: 'document_idle',
     },
   ],
-  permissions: ['storage', 'alarms', 'notifications'],
+  // scripting: re-run the content script in GitHub tabs already open when the extension is installed or updated
+  permissions: ['storage', 'alarms', 'notifications', 'scripting'],
   // api.github.com: REST API, github.com: OAuth device flow endpoints (no CORS headers there)
   host_permissions: ['https://api.github.com/*', 'https://github.com/*'],
 })
