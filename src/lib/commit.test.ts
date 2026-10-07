@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { badgeFromOcticon, latestPerWorkflowEvent, predictBadge, rollup } from './commit'
+import { badgeFromOcticon, COMMIT_STATE_MAX_AGE_MS, freshActions, latestPerWorkflowEvent, predictBadge, rollup } from './commit'
 import type { ApiRun } from './types'
 
 const run = (over: Partial<ApiRun>): ApiRun =>
@@ -79,5 +79,18 @@ describe('predictBadge', () => {
 
   it('does nothing without Actions data', () => {
     expect(predictBadge('success', 'success', null)).toBeNull()
+  })
+})
+
+describe('freshActions', () => {
+  const now = Date.parse('2026-01-01T00:10:00Z')
+  it('passes recent state through', () => {
+    expect(freshActions({ actions: 'success', fetchedAt: now - 10_000 }, now)).toBe('success')
+    expect(freshActions({ actions: null, fetchedAt: now - 10_000 }, now)).toBeNull()
+  })
+
+  it('drops state that polling has stopped refreshing', () => {
+    expect(freshActions({ actions: 'pending', fetchedAt: now - COMMIT_STATE_MAX_AGE_MS - 1 }, now)).toBeUndefined()
+    expect(freshActions(undefined, now)).toBeUndefined()
   })
 })

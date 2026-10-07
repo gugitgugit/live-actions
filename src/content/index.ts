@@ -4,6 +4,7 @@ import { PAGE_PORT, type PageMessage } from '../lib/messages'
 import { parsePage, runsForPage, type PageContext } from '../lib/page'
 import { isActive } from '../lib/progress'
 import { getItem, onItemChanged, type StorageSchema } from '../lib/storage'
+import { COMMIT_STATE_MAX_AGE_MS, freshActions } from '../lib/commit'
 import { readLatestCommitSha, removeNativeBadge, syncNativeBadge } from './native'
 import { createShadowHost, renderBanner, renderRowBar } from './render'
 
@@ -58,6 +59,7 @@ function teardown() {
   observer?.disconnect()
   alignObserver?.disconnect()
   if (ticker) clearInterval(ticker)
+  if (expiryTimer) clearTimeout(expiryTimer)
   document.getElementById(BANNER_ID)?.remove()
   document.querySelectorAll(`.${ROW_CLASS}`).forEach((n) => n.remove())
   removeNativeBadge()
@@ -152,7 +154,10 @@ function render() {
 
   if (state?.settings.inPage && ctx?.kind === 'code' && sha) {
     const key = `${ctx.repo}@${sha}`
-    syncNativeBadge(key, sha, state.commits[key]?.actions)
+    const info = state.commits[key]
+    syncNativeBadge(key, sha, freshActions(info, now))
+    // polling may stop without another storage change; look again once this state expires
+    if (info) expireAt(info.fetchedAt + COMMIT_STATE_MAX_AGE_MS + 1, now)
   } else {
     removeNativeBadge()
   }
@@ -175,6 +180,12 @@ function render() {
     clearInterval(ticker)
     ticker = null
   }
+}
+
+let expiryTimer: ReturnType<typeof setTimeout> | null = null
+function expireAt(at: number, now: number) {
+  if (expiryTimer) clearTimeout(expiryTimer)
+  expiryTimer = at > now ? setTimeout(schedule, at - now) : null
 }
 
 function renderBannerFor(ctx: Extract<PageContext, { kind: 'pr' | 'code' }>, now: number): boolean {
