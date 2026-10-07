@@ -1,4 +1,4 @@
-import { needsRefresh, refreshAuth } from '../lib/auth'
+import { AuthError, isTransientRefreshError, needsRefresh, refreshAuth } from '../lib/auth'
 import { errorText, type ErrorInfo } from '../lib/errors'
 import { GitHubClient, GitHubError, HttpCache } from '../lib/github'
 import { t, type MessageKey } from '../lib/i18n'
@@ -44,8 +44,11 @@ async function getValidAuth(): Promise<AuthState> {
     })
   try {
     return await refreshing
-  } catch {
-    throw new GitHubError(401, 'Session expired')
+  } catch (e) {
+    // keep the session: the next poll tries again, and the error shows as a network/HTTP problem
+    if (isTransientRefreshError(e)) throw e
+    // the reason is kept with the sign-out, so an unexpected one can be told apart later
+    throw new GitHubError(401, `refresh: ${e instanceof AuthError ? e.code : String(e)}`)
   }
 }
 
@@ -142,7 +145,7 @@ async function doPoll() {
   const finished: TrackedRun[] = []
   const lastPolledAt = meta.lastPolledAt
   const catchUp = lastPolledAt !== null && now - lastPolledAt < CATCH_UP_WINDOW_MS
-  let unauthorized = false
+  let unauthorized: string | null = null
   let lastError: ErrorInfo | null = null
 
   await Promise.all(
@@ -190,7 +193,7 @@ async function doPoll() {
         }
       } catch (e) {
         if (e instanceof GitHubError && e.status === 401) {
-          unauthorized = true
+          unauthorized = e.message
           return
         }
         repoErrors[fullName] = describeError(e)
@@ -202,8 +205,8 @@ async function doPoll() {
     }),
   )
 
-  if (unauthorized) {
-    await signOut({ code: 'session_expired' })
+  if (unauthorized !== null) {
+    await signOut({ code: 'session_expired', detail: unauthorized })
     await refreshBadge({}, meta, settings, auth.login)
     return
   }
@@ -529,5 +532,6 @@ function describeError(e: unknown): ErrorInfo {
     return { code: 'http', status: e.status, detail: e.message }
   }
   if (e instanceof TypeError) return { code: 'network' }
+  if (e instanceof AuthError && e.code === 'http_error') return { code: 'http', status: e.status, detail: e.message }
   return { code: 'unknown', detail: e instanceof Error ? e.message : String(e) }
 }
