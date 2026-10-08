@@ -38,6 +38,7 @@ describe('t without chrome.i18n', () => {
   it('falls back to English and fills placeholders by argument order', () => {
     expect(t('errorHttp', 502, 'Bad gateway')).toBe('GitHub error 502: Bad gateway')
     expect(t('durationMinutes', 2, '05')).toBe('2m 05s')
+    expect(t('notifFailed', 'Deploy')).toBe('❌ Deploy failed')
   })
 
   it('splits a sentence around its placeholder', () => {

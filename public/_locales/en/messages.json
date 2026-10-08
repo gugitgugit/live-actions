@@ -216,25 +216,60 @@
     "message": "Run progress"
   },
   "notifPassed": {
-    "message": "✅ Passed"
+    "message": "$WORKFLOW$ passed",
+    "placeholders": {
+      "workflow": {
+        "content": "$1"
+      }
+    }
   },
   "notifFailed": {
-    "message": "❌ Failed"
+    "message": "❌ $WORKFLOW$ failed",
+    "placeholders": {
+      "workflow": {
+        "content": "$1"
+      }
+    }
   },
   "notifTimedOut": {
-    "message": "⏱ Timed out"
+    "message": "⏱️ $WORKFLOW$ timed out",
+    "placeholders": {
+      "workflow": {
+        "content": "$1"
+      }
+    }
   },
   "notifStartupFailure": {
-    "message": "❌ Startup failure"
+    "message": "❌ $WORKFLOW$ failed to start",
+    "placeholders": {
+      "workflow": {
+        "content": "$1"
+      }
+    }
   },
   "notifCancelled": {
-    "message": "⊘ Cancelled"
+    "message": "🚫 $WORKFLOW$ cancelled",
+    "placeholders": {
+      "workflow": {
+        "content": "$1"
+      }
+    }
   },
   "notifActionRequired": {
-    "message": "⚠️ Action required"
+    "message": "⚠️ $WORKFLOW$ needs action",
+    "placeholders": {
+      "workflow": {
+        "content": "$1"
+      }
+    }
   },
   "notifFinished": {
-    "message": "Finished"
+    "message": "$WORKFLOW$ finished",
+    "placeholders": {
+      "workflow": {
+        "content": "$1"
+      }
+    }
   },
   "badgeTitleRunning": {
     "message": "Live Actions — $COUNT$ running",

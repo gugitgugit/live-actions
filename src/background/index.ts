@@ -404,7 +404,7 @@ function notify(run: TrackedRun, mode: NotifyMode) {
   chrome.notifications.create(runNotificationId(run.htmlUrl), {
     type: 'basic',
     iconUrl: chrome.runtime.getURL('icons/icon-128.png'),
-    title: `${t(CONCLUSION_TITLE[run.conclusion ?? ''] ?? 'notifFinished')} · ${run.workflowName}`,
+    title: t(CONCLUSION_TITLE[run.conclusion ?? ''] ?? 'notifFinished', run.workflowName),
     message: run.title,
     contextMessage: parts.join(' · '),
     priority: FAILED_CONCLUSIONS.has(run.conclusion) ? 2 : 0,

@@ -216,25 +216,60 @@
     "message": "실행 진행률"
   },
   "notifPassed": {
-    "message": "✅ 성공"
+    "message": "$WORKFLOW$ 성공",
+    "placeholders": {
+      "workflow": {
+        "content": "$1"
+      }
+    }
   },
   "notifFailed": {
-    "message": "❌ 실패"
+    "message": "❌ $WORKFLOW$ 실패",
+    "placeholders": {
+      "workflow": {
+        "content": "$1"
+      }
+    }
   },
   "notifTimedOut": {
-    "message": "⏱ 시간 초과"
+    "message": "⏱️ $WORKFLOW$ 시간 초과",
+    "placeholders": {
+      "workflow": {
+        "content": "$1"
+      }
+    }
   },
   "notifStartupFailure": {
-    "message": "❌ 시작 실패"
+    "message": "❌ $WORKFLOW$ 시작 실패",
+    "placeholders": {
+      "workflow": {
+        "content": "$1"
+      }
+    }
   },
   "notifCancelled": {
-    "message": "⊘ 취소됨"
+    "message": "🚫 $WORKFLOW$ 취소됨",
+    "placeholders": {
+      "workflow": {
+        "content": "$1"
+      }
+    }
   },
   "notifActionRequired": {
-    "message": "⚠️ 조치 필요"
+    "message": "⚠️ $WORKFLOW$ 조치 필요",
+    "placeholders": {
+      "workflow": {
+        "content": "$1"
+      }
+    }
   },
   "notifFinished": {
-    "message": "완료"
+    "message": "$WORKFLOW$ 완료",
+    "placeholders": {
+      "workflow": {
+        "content": "$1"
+      }
+    }
   },
   "badgeTitleRunning": {
     "message": "Live Actions — $COUNT$개 실행 중",
