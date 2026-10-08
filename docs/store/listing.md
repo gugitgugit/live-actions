@@ -1,6 +1,6 @@
 # Chrome Web Store 등록 정보
 
-[개발자 대시보드](https://chrome.google.com/webstore/devconsole)에 그대로 붙여 넣을 내용입니다. 기능·권한·저장 데이터가 바뀌면 이 문서와 [개인정보처리방침](../../PRIVACY.md)을 함께 고칩니다.
+[개발자 대시보드](https://chrome.google.com/webstore/devconsole)에 그대로 붙여 넣을 내용입니다. 스토어 페이지: <https://chromewebstore.google.com/detail/live-actions-for-github/fnfmpglkebgbokpmlcbadploemgilpgl> (항목 ID `fnfmpglkebgbokpmlcbadploemgilpgl`, 2026-10-09 v1.0.0 공개) 기능·권한·저장 데이터가 바뀌면 이 문서와 [개인정보처리방침](../../PRIVACY.md)을 함께 고칩니다.
 
 ## 패키지
 
@@ -133,9 +133,11 @@ Show the progress and results of the user's GitHub Actions workflow runs – ins
 
 **개인정보처리방침 URL**: https://github.com/gugitgugit/live-actions/blob/main/PRIVACY.md (저장소 공개 후)
 
-## 제출 전에 직접 할 일
+## 첫 제출 때 한 일 (2026-10-08)
 
-1. 저장소를 Public으로 전환 (개인정보처리방침·홈페이지 링크가 열려야 함) — 완료
-2. GitHub App 설정: **Make public**, Homepage URL을 저장소 주소로
-3. 개발자 등록 (최초 1회 $5)과 연락처 이메일 인증
-4. zip 업로드 → 위 내용 입력 → 심사 제출
+1. 저장소를 Public으로 전환 (개인정보처리방침·홈페이지 링크가 열려야 함)
+2. GitHub App 설정: **Make public**, Homepage URL을 저장소 주소로, Description 입력
+3. 개발자 등록 (최초 1회 $5): 게시자 이름 `gugitgugit`, EEA 사업자 선언은 비판매자(무료 개인 프로젝트), 연락처 이메일 인증
+4. zip 업로드 → 위 내용 입력 → 심사 제출. 다음 날 승인·공개됨 (호스트 권한으로 "자세한 검토" 안내가 떴지만 하루 만에 통과)
+
+업데이트는 버전을 올린 zip을 같은 항목의 **패키지**에 올리고 다시 제출합니다.
