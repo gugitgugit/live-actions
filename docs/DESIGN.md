@@ -441,7 +441,7 @@ background, Popup, Options page, content script는 서로 다른 JS 컨텍스트
 | `histories`, `httpCache` | **background만** | background |
 | `meta` | background, Popup 연결 시 실패 카운터 초기화 | 모두 |
 
-로그아웃은 `auth`만 지웁니다. background가 `onChanged`로 이를 알아채고 다음 폴링에서 run, 커밋 상태, 응답 캐시를 정리합니다. 정리 코드가 한 곳에만 있어 빠뜨릴 일이 없습니다.
+로그아웃은 `auth`만 지웁니다. background가 `onChanged`로 이를 알아채고 다음 폴링에서 그 계정으로 알게 된 것을 모두 정리합니다: run, 커밋 상태, 응답 캐시, 워크플로 이력, 저장소 정보, 저장소별 오류. 비공개 저장소 이름이 이력과 저장소 정보의 키에도 남기 때문입니다. 설정은 남깁니다. 정리 코드가 한 곳에만 있어 빠뜨릴 일이 없습니다.
 
 **근거**
 - C1 때문에 메모리에 둔 상태는 언제든 사라질 수 있으므로 A는 탈락입니다.
@@ -465,6 +465,7 @@ background, Popup, Options page, content script는 서로 다른 JS 컨텍스트
 **변경 내력**
 - 2026-10-06: content script를 추가하며 `page` Port, `repoInfo` 키, `getToken` 제한을 넣었습니다. 처음 제한은 `sender.tab`이 있는 요청을 거부하는 방식이었습니다.
 - 2026-10-07: 설정 화면도 탭으로 열려 `sender.tab` 제한에 걸리면서 저장소 목록을 불러오지 못하는 문제가 있어, 보낸 페이지의 URL로 판단하도록 바꿨습니다. 같은 날 로그아웃 정리를 background 한 곳으로 모았습니다.
+- 2026-10-08: 로그아웃해도 워크플로 이력·저장소 정보·저장소별 오류가 남아 비공개 저장소 이름이 저장된 채였습니다. 개인정보처리방침에 "로그아웃하면 지운다"고 쓸 수 있도록 함께 지우게 했습니다.
 
 ---
 
@@ -923,7 +924,8 @@ UI를 한국어와 영어로 제공합니다. 문구는 Popup, 설정 화면, Gi
 | **재생 기호 + 진행 바** | Actions에서 워크플로 실행에 쓰이는 "재생" 모양으로 대상을 드러내고, 아래 진행 바로 하는 일을 보여 줌. 16px에서도 원·삼각형·바가 구분됨 |
 
 **결정**
-- 아이콘: GitHub 다크 화면의 바탕색(`#0d1117`)에 흰 재생 기호(원 + 삼각형), 아래에 GitHub 성공 색(`#3fb950`) 진행 바. 원본은 [`docs/icon.svg`](icon.svg)이고 16·32·48·128px PNG는 이 SVG를 브라우저로 렌더링해 만듭니다. Popup과 설정 화면의 로고도 같은 PNG를 씁니다.
+- 아이콘: GitHub 다크 화면의 바탕색(`#0d1117`)에 흰 재생 기호(원 + 삼각형), 아래에 GitHub 성공 색(`#3fb950`) 진행 바. 원본은 [`docs/icon.svg`](icon.svg)이고 16·32·48·128px PNG는 `scripts/render-icons.sh`가 이 SVG를 headless Chrome으로 렌더링해 만듭니다(이미지 변환 도구 의존성을 두지 않기 위해). Popup과 설정 화면의 로고도 같은 PNG를 씁니다.
+- Web Store 이미지: 스토어 아이콘은 [이미지 가이드](https://developer.chrome.com/docs/webstore/images)대로 128px 안에 그림을 96px로 넣고 16px씩 여백을 둔 별도 파일(`docs/store/icon-128.png`)입니다. 툴바·확장 프로그램 목록에서는 작은 크기에서도 잘 보이도록 여백 없는 아이콘을 그대로 씁니다. 필수인 작은 프로모션 타일(440×280)도 같은 스크립트가 `docs/store/promo-tile.html`에서 만듭니다.
 - 이름: **Live Actions for GitHub** (화면 안 제목은 Live Actions). 2026-10-07까지의 이름은 Actions Pulse였습니다.
 
 **이름을 고른 과정**
@@ -939,6 +941,9 @@ UI를 한국어와 영어로 제공합니다. 문구는 Popup, 설정 화면, Gi
 
 **재검토 조건**: Web Store 심사에서 이름이나 아이콘이 문제 되면 다시 검토합니다.
 
+**변경 내력**
+- 2026-10-08: 예전 파란 아이콘을 그리던 `scripts/gen-icons.mjs`가 남아 있어 SVG 렌더링 스크립트로 바꾸고, 스토어용 아이콘과 프로모션 타일을 추가했습니다.
+
 ---
 
 ## 5. 데이터 모델
@@ -950,9 +955,9 @@ UI를 한국어와 영어로 제공합니다. 문구는 Popup, 설정 화면, Gi
 | `auth` | `AuthState \| null` | `kind`(`app`/`pat`), `accessToken`, `login`, `expiresAt`, `refreshToken`, `refreshTokenExpiresAt` |
 | `settings` | `Settings` | `repos`(감시 저장소), `notify`(`all`/`failure`/`none`), `onlyMine`, `inPage`(GitHub 페이지 안 진행 바, 기본 켜짐) |
 | `runs` | `Record<"owner/repo#runId", TrackedRun>` | 감시·조회 중인 저장소의 실행 중 run + 최근 30분 내 완료 run(저장소당 최대 10개). job 요약(job·step 시작 시각 포함), 계산된 진행률, 워크플로 이력(`history`), job 조회 시각(`fetchedAt`), `headSha`, `prNumbers` 포함 |
-| `histories` | `Record<"owner/repo#workflowId", HistoryEntry>` | 워크플로별 과거 이력(`WorkflowHistory`: 실행 시간 중앙값, job별 소요 시간·step별 소요 시간·마무리 시간·선행 job·시작 지연), 조회 시각 (6시간 TTL). |
+| `histories` | `Record<"owner/repo#workflowId", HistoryEntry>` | 워크플로별 과거 이력(`WorkflowHistory`: 실행 시간 중앙값, job별 소요 시간·step별 소요 시간·마무리 시간·선행 job·시작 지연), 조회 시각 (6시간 TTL, 로그아웃 시 비움) |
 | `httpCache` | `Record<url, CacheEntry>` | ETag와 응답 본문 (최근 150개, 쓰는 필드만 저장하고 전체 2MB 상한, D4) |
-| `repoInfo` | `Record<"owner/repo", RepoInfo>` | 보고 있는 저장소의 기본 브랜치 (하루 TTL) |
+| `repoInfo` | `Record<"owner/repo", RepoInfo>` | 보고 있는 저장소의 기본 브랜치 (하루 TTL, 로그아웃 시 비움) |
 | `commits` | `Record<"owner/repo@sha", CommitInfo>` | 지금 열린 탭이 보여주는 커밋의 Actions 합산 상태 (`pending`/`success`/`failure`/없음). 탭이 닫히면 다음 폴링에서 빠짐. 로그아웃·폴링 대상 없음일 때 비움, 60초보다 오래된 값은 화면에서 쓰지 않음 (D16) |
 | `meta` | `Meta` | `lastPolledAt`, `lastError`, `repoErrors`, `rateLimit`, `unseenFailures`. 오류는 문장이 아닌 코드(`ErrorInfo`)로 저장 (D17) |
 
@@ -1135,7 +1140,7 @@ sequenceDiagram
 
 | 우선순위 | 항목 | 관련 결정 |
 |---|---|---|
-| 높음 | Web Store 제출 (등록 문구, 스크린샷, 개인정보처리방침 게시) | D10, D13 |
+| 높음 | Web Store 제출 (등록 정보는 [`docs/store/listing.md`](store/listing.md)에 준비됨, 스크린샷과 저장소 공개가 남음) | D10, D13 |
 | 중간 | 상태 전이 감지(완료 판정·catch-up)를 순수 함수로 분리하고 단위 테스트 추가 | D9, 8장 |
 | 낮음 | Firefox 지원 (WXT 이전 검토) | D11 |
 
@@ -1160,4 +1165,4 @@ sequenceDiagram
 | 2026-10-05 | 최초 작성 (v0.1.0 MVP 기준 D1~D13), CI 구성과 근거 |
 | 2026-10-06 | GitHub 페이지 안 진행 바(목표 G5, D14·D15)와 기본 상태 아이콘 동기화(D16) 추가, 배너 위치를 저장소 메인 버튼 줄 아래·PR 병합 박스 위로 옮기고 폴더·파일 화면 제외. 적응형 폴링과 PR 화면 신호(D3), 진행률 step 상한과 단계 수 표시(D8), 알림 ID 고유화(D9), 다국어(D17) |
 | 2026-10-07 | job·step별 남은 시간 예측과 "마무리 중…"(D8), 캐시 크기 줄이기(D4), 일시적 토큰 갱신 실패 시 로그인 유지(D5), 설정 화면 정리(D6), 토큰 요청을 보낸 페이지 URL로 판단(D7), `scripting` 권한(D10), API 링크 검사·"~전" 갱신(D14), 404 저장소 5분 쉬기(D15), 오래된 상태로 아이콘 덮어쓰지 않기(D16), 한국어 문장 분할·줄바꿈(D17), 아이콘과 이름 Live Actions for GitHub(D18), CI 수동 실행과 main 브랜치 보호(8장), 첫 공개 전 코드 정리(5장) |
-| 2026-10-08 | 문서를 "현재 결정 + 변경 내력" 방식으로 재구성(11장 규칙 변경). 3장 모듈 표 갱신, 8장 압축, 10장에서 끝난 항목 제거 |
+| 2026-10-08 | 문서를 "현재 결정 + 변경 내력" 방식으로 재구성(11장 규칙 변경). 3장 모듈 표 갱신, 8장 압축, 10장에서 끝난 항목 제거. Web Store 제출 준비: v1.0.0, 로그아웃 시 이력·저장소 정보도 정리(D7), 스토어 아이콘·프로모션 타일과 렌더링 스크립트(D18), 등록 정보 문서, 개인정보처리방침 갱신 |

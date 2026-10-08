@@ -31,7 +31,8 @@ src/
   shared/       화면들이 함께 쓰는 hook, 아이콘, 테마
   lib/          판단 로직(진행률·남은 시간 예측·페이지 판별 등)과 GitHub 클라이언트. 대부분 순수 함수라 단위 테스트 있음
 public/_locales/  UI 문구 (en, ko). 문구를 추가할 때는 두 파일에 같은 키를 넣기 (테스트가 검사)
-docs/           설계 문서, 아이콘 원본
+docs/           설계 문서, 아이콘 원본, Web Store 등록 정보와 이미지(store/)
+scripts/        아이콘·스토어 이미지 렌더링 (headless Chrome)
 ```
 
 ## 개발
@@ -63,20 +64,8 @@ npm run build
 
 > User token은 기본 8시간 만료 + refresh token(6개월) 방식이고, 확장이 자동 갱신합니다. Device Flow로 발급된 토큰은 client secret 없이 갱신할 수 있습니다.
 
-## Chrome Web Store 배포 체크리스트
+## Chrome Web Store 배포
 
 1. `package.json`의 `version` 올리기 → `npm run zip` → `live-actions-<version>.zip`
-2. [개발자 대시보드](https://chrome.google.com/webstore/devconsole) 등록 (최초 1회 등록비 $5)
-3. 스토어 등록 정보: 설명, 스크린샷 1280×800, 작은 프로모션 타일 440×280
-4. **Privacy practices** 탭
-   - Single purpose: "Show the progress of the user's GitHub Actions workflow runs."
-   - 권한 사유
-     - `storage`: 로그인 토큰, 감시 저장소, 마지막 run 상태 저장
-     - `alarms`: 주기적으로 GitHub API를 조회해 진행도 갱신
-     - `notifications`: run 완료/실패 알림
-     - `scripting`: 설치·업데이트 직후 이미 열린 GitHub 탭에 진행 바 코드를 다시 실행 (새로고침 없이 계속 갱신)
-     - `https://api.github.com/*`: 워크플로 run/job 조회
-     - `https://github.com/*`: OAuth Device Flow 로그인 엔드포인트, PR·코드·Actions 화면에 진행 바 표시(content script)
-   - Remote code: 사용 안 함
-   - Data usage: "Authentication information" 수집 체크, 판매/전송 없음
-   - 개인정보처리방침 URL: [PRIVACY.md](PRIVACY.md)를 GitHub Pages 등에 게시한 주소
+2. [개발자 대시보드](https://chrome.google.com/webstore/devconsole)에 업로드하고 [등록 정보 문서](docs/store/listing.md)의 설명·권한 사유·데이터 사용 답변을 입력
+3. 기능·권한·저장 데이터가 바뀌었으면 등록 정보 문서와 [개인정보처리방침](PRIVACY.md)도 함께 수정

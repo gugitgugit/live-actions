@@ -130,8 +130,15 @@ async function doPoll() {
     await Promise.all([
       Object.keys(prevRuns).length ? setItem('runs', {}) : null,
       setItem('commits', {}),
-      // cached responses were fetched with the signed-out token
-      auth ? null : setItem('httpCache', {}),
+      // signed out: drop everything learned with that account, private repository names included
+      ...(auth
+        ? []
+        : [
+            setItem('httpCache', {}),
+            setItem('histories', {}),
+            setItem('repoInfo', {}),
+            Object.keys(meta.repoErrors).length ? updateItem('meta', (m) => ({ ...m, repoErrors: {} })) : null,
+          ]),
     ])
     await refreshBadge({}, meta, settings, auth?.login)
     await schedule(false)
