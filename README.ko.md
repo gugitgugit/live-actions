@@ -17,7 +17,9 @@
 
 ## 설치
 
-Chrome Web Store에 곧 공개됩니다. 그 전에는 [소스에서 직접 빌드](docs/DEVELOPMENT.md)할 수 있습니다.
+[Chrome Web Store](https://chromewebstore.google.com/detail/live-actions-for-github/fnfmpglkebgbokpmlcbadploemgilpgl)에서 설치하세요.
+
+아직 배포되지 않은 변경 사항을 써 보려면 [소스에서 직접 빌드](docs/DEVELOPMENT.md)할 수 있습니다.
 
 ## 시작하기
 

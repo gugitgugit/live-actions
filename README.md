@@ -17,7 +17,9 @@ See GitHub Actions progress without refreshing. Live Actions is a Chrome extensi
 
 ## Install
 
-Coming soon to the Chrome Web Store. Until then, you can [build it from source](docs/DEVELOPMENT.md).
+Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/live-actions-for-github/fnfmpglkebgbokpmlcbadploemgilpgl).
+
+To try changes that are not released yet, [build it from source](docs/DEVELOPMENT.md).
 
 ## Getting started
 
