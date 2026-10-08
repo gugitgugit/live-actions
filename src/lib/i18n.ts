@@ -32,8 +32,7 @@ function fallback(entry: Entry, args: string[]): string {
  * bold name). Word order differs by language, so the sentence decides where it goes.
  */
 export function tAround(key: MessageKey): [string, string] {
-  // a private-use character: chrome.i18n drops U+0000 from substitutions, which put the whole
-  // sentence before the placeholder ("계정으로 로그인됨@name" instead of "@name 계정으로 로그인됨")
+  // a private-use character: chrome.i18n drops U+0000 from substitutions, so it cannot mark the spot
   const MARK = '\uE000'
   const [before, after = ''] = t(key, MARK).split(MARK)
   return [before, after]

@@ -113,10 +113,9 @@ export interface JobSummary {
   stepsDone: number
   stepsTotal: number
   currentStep: string | null
-  /** absent in runs stored by versions before the per-step estimate */
-  startedAt?: string | null
-  completedAt?: string | null
-  steps?: StepSummary[]
+  startedAt: string | null
+  completedAt: string | null
+  steps: StepSummary[]
 }
 
 export interface StepSummary {
@@ -159,10 +158,10 @@ export interface TrackedRun {
   startedAt: string
   updatedAt: string
   jobs: JobSummary[]
-  /** what recent successful runs of the workflow looked like; absent in runs stored by older versions */
-  history?: WorkflowHistory | null
+  /** what recent successful runs of the workflow looked like */
+  history: WorkflowHistory | null
   /** epoch ms when `jobs` was fetched */
-  fetchedAt?: number
+  fetchedAt: number
   progress: Progress
   /** epoch ms when we first saw it as completed */
   completedAt?: number
@@ -199,10 +198,15 @@ export interface JobHistory {
   startDelayMs: number
 }
 
-export interface DurationStat {
-  /** absent in entries stored by older versions, which are refetched */
-  history?: WorkflowHistory | null
+export interface HistoryEntry {
+  history: WorkflowHistory | null
   fetchedAt: number
+}
+
+export interface CacheEntry {
+  etag: string
+  body: unknown
+  storedAt: number
 }
 
 export interface RateLimit {
@@ -214,9 +218,8 @@ export interface RateLimit {
 
 export interface Meta {
   lastPolledAt: number | null
-  /** plain strings come from versions before errors were stored as codes */
-  lastError: ErrorInfo | string | null
-  repoErrors: Record<string, ErrorInfo | string>
+  lastError: ErrorInfo | null
+  repoErrors: Record<string, ErrorInfo>
   rateLimit: RateLimit | null
   unseenFailures: number
 }

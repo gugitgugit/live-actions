@@ -113,7 +113,7 @@ export function executionStart(jobs: JobSummary[], attemptStart: number): number
   const started = jobs.filter((j) => j.status === 'in_progress' || j.status === 'completed')
   if (started.length === 0) return null
   const times = started.map((j) => time(j.startedAt)).filter(Number.isFinite)
-  // runs stored by older versions have no job times
+  // a started job reports its start time; fall back to the attempt start if one does not
   return times.length > 0 ? Math.max(attemptStart, Math.min(...times)) : attemptStart
 }
 
@@ -172,7 +172,7 @@ export function remainingByJobs(
  * second or two; one that was already past it is still running, and the estimate holds.
  */
 function runningEnd(job: JobSummary, h: JobHistory, now: number, fetchedAt: number): number {
-  const steps = job.steps ?? []
+  const steps = job.steps
   const started = time(job.startedAt)
   const byJob = Math.max(now, (Number.isFinite(started) ? started : now) + h.durationMs)
   if (steps.length === 0) return byJob

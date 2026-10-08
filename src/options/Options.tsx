@@ -47,7 +47,7 @@ async function saveAuth(auth: AuthState) {
   await setItem('auth', { ...auth, login: viewer.login })
 }
 
-function Account({ auth, lastError }: { auth: AuthState | null; lastError: ErrorInfo | string | null }) {
+function Account({ auth, lastError }: { auth: AuthState | null; lastError: ErrorInfo | null }) {
   if (auth) {
     const [before, after] = tAround('signedInAs')
     return (
@@ -67,9 +67,8 @@ function Account({ auth, lastError }: { auth: AuthState | null; lastError: Error
           </div>
           <button
             className="btn btn-danger"
-            onClick={async () => {
-              await Promise.all([setItem('auth', null), setItem('runs', {}), setItem('commits', {}), setItem('httpCache', {})])
-            }}
+            // the background clears runs and caches when it sees `auth` go
+            onClick={() => setItem('auth', null)}
           >
             {t('signOut')}
           </button>
@@ -230,7 +229,7 @@ function Repositories({
 }: {
   auth: AuthState
   settings: Settings
-  repoErrors: Record<string, ErrorInfo | string>
+  repoErrors: Record<string, ErrorInfo>
 }) {
   const client = useMemo(() => new GitHubClient({ getToken: getTokenFromBackground }), [])
   const [available, setAvailable] = useState<ApiRepo[] | null>(null)

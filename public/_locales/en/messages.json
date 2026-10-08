@@ -184,6 +184,9 @@
   "bannerTitle": {
     "message": "Actions"
   },
+  "unnamedWorkflow": {
+    "message": "Workflow"
+  },
   "viewAllRuns": {
     "message": "View all runs"
   },
@@ -506,9 +509,6 @@
   },
   "add": {
     "message": "Add"
-  },
-  "ownerNameFormat": {
-    "message": "Use the owner/name format, e.g. vercel/next.js"
   },
   "notFoundApp": {
     "message": "Not found. Is the app installed on this repository?"

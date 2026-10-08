@@ -1,6 +1,5 @@
 import { slimJobList, slimRepo, slimRun, slimRunList } from './slim'
-import type { CacheEntry } from './storage'
-import type { ApiJob, ApiRepo, ApiRun, RateLimit } from './types'
+import type { ApiJob, ApiRepo, ApiRun, CacheEntry, RateLimit } from './types'
 
 const API = 'https://api.github.com'
 /** about a fifth of chrome.storage.local's 10 MB; slimmed responses (lib/slim.ts) fit easily */

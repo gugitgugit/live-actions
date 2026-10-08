@@ -1,19 +1,8 @@
 import { executionStart, remainingByJobs } from './estimate'
+import { formatDuration } from './format'
 import { t } from './i18n'
+import type { ApiJob, ApiRun, JobSummary, Progress, TrackedRun, WorkflowHistory } from './types'
 import { githubUrl } from './url'
-import type { ApiJob, ApiRun, ApiRunStatus, JobSummary, Progress, TrackedRun, WorkflowHistory } from './types'
-
-export const ACTIVE_STATUSES: ReadonlySet<ApiRunStatus> = new Set([
-  'queued',
-  'in_progress',
-  'waiting',
-  'requested',
-  'pending',
-])
-
-export function isActive(status: ApiRunStatus): boolean {
-  return ACTIVE_STATUSES.has(status)
-}
 
 export function summarizeJobs(jobs: ApiJob[]): JobSummary[] {
   return jobs.map((job) => {
@@ -123,16 +112,17 @@ export function runProgress(run: TrackedRun, now: number): Progress {
   return computeProgress(
     { status: run.status, run_started_at: run.startedAt, created_at: run.startedAt, updated_at: run.updatedAt },
     run.jobs,
-    run.history ?? null,
+    run.history,
     now,
-    run.fetchedAt ?? now,
+    run.fetchedAt,
   )
 }
 
 /**
  * How far past the usual duration a run can be and still count as finishing. The end is
  * noticed late: GitHub marks a run completed 1 to 6 seconds after its last job, and the next
- * poll can be 2.5 s away (D3), while the clock keeps running. Same window as "finishing" in D3.
+ * poll can be 2.5 s away, while the clock keeps running. The same window schedule.ts uses for
+ * "about to finish".
  */
 const WRAP_UP_GRACE_MS = 30_000
 
@@ -150,16 +140,6 @@ export function timeLabel(p: Progress, queued: boolean): string {
   // under half a second would read "0 s left"
   if (p.remainingMs < 500) return t('finishingUp')
   return t('timeLeft', formatDuration(p.remainingMs))
-}
-
-export function formatDuration(ms: number): string {
-  const totalSec = Math.round(ms / 1000)
-  const h = Math.floor(totalSec / 3600)
-  const m = Math.floor((totalSec % 3600) / 60)
-  const s = totalSec % 60
-  if (h > 0) return t('durationHours', h, m)
-  if (m > 0) return t('durationMinutes', m, s.toString().padStart(2, '0'))
-  return t('durationSeconds', s)
 }
 
 /**

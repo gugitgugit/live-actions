@@ -2,7 +2,7 @@ import { APP_SLUG } from '../lib/auth'
 import { isNotFound } from '../lib/errors'
 import { PAGE_PORT, type PageMessage } from '../lib/messages'
 import { parsePage, runsForPage, type PageContext } from '../lib/page'
-import { isActive } from '../lib/progress'
+import { isActive } from '../lib/status'
 import { getItem, onItemChanged, type StorageSchema } from '../lib/storage'
 import { COMMIT_STATE_MAX_AGE_MS, freshActions } from '../lib/commit'
 import { timeAgoChangesIn } from '../lib/format'
@@ -304,8 +304,8 @@ function watchAlign(el: Element | null) {
 
 /**
  * Inserting while React is still hydrating server-rendered markup would make it bail out.
- * GitHub marks some apps with a `loaded` class but not all (it was missing on a directly
- * opened pull request), so a fully loaded document also counts.
+ * GitHub marks some apps with a `loaded` class but not all of them, so a fully loaded
+ * document also counts.
  */
 function reactSettled(el: Element): boolean {
   const app = el.closest('react-app')

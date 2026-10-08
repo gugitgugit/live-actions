@@ -26,4 +26,3 @@ export function useNow(ms = 1000): number {
   return now
 }
 
-export { timeAgo } from '../lib/format'

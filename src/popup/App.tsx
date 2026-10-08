@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { errorText, type ErrorInfo } from '../lib/errors'
 import { isCounted } from '../lib/filters'
+import { formatDuration, timeAgo } from '../lib/format'
 import { t } from '../lib/i18n'
 import { POPUP_PORT, send } from '../lib/messages'
-import { formatDuration, isActive, progressSummary, runProgress, timeLabel } from '../lib/progress'
+import { progressSummary, runProgress, timeLabel } from '../lib/progress'
+import { isActive, toneOf } from '../lib/status'
 import type { TrackedRun } from '../lib/types'
-import { StatusIcon, toneOf } from '../shared/StatusIcon'
 import { GitHubMark } from '../shared/GitHubMark'
-import { timeAgo, useNow, useStorage } from '../shared/useStorage'
+import { StatusIcon } from '../shared/StatusIcon'
+import { useNow, useStorage } from '../shared/useStorage'
 
 export function App() {
   const auth = useStorage('auth')
@@ -251,7 +253,7 @@ function EmptyState({
   action: string
   /** styled as GitHub's own sign-in button */
   github?: boolean
-  error?: ErrorInfo | string | null
+  error?: ErrorInfo | null
 }) {
   return (
     <div className="empty">

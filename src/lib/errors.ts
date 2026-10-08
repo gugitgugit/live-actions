@@ -1,3 +1,5 @@
+import { AuthError } from './auth'
+import { GitHubError } from './github'
 import { t } from './i18n'
 
 // Errors are stored as codes and turned into text where they are shown, so the text follows
@@ -23,14 +25,12 @@ export interface ErrorInfo {
 export const NOT_FOUND_RETRY_MS = 5 * 60_000
 
 /** true while a repository's last 404 is recent enough not to ask again */
-export function isBackedOff(e: ErrorInfo | string | null | undefined, now: number): boolean {
-  return typeof e === 'object' && e?.code === 'not_found' && e.at !== undefined && now - e.at < NOT_FOUND_RETRY_MS
+export function isBackedOff(e: ErrorInfo | null | undefined, now: number): boolean {
+  return e?.code === 'not_found' && e.at !== undefined && now - e.at < NOT_FOUND_RETRY_MS
 }
 
-/** Plain strings are errors saved by versions before 2026-10-06. */
-export function errorText(e: ErrorInfo | string | null | undefined): string {
+export function errorText(e: ErrorInfo | null | undefined): string {
   if (!e) return ''
-  if (typeof e === 'string') return e
   switch (e.code) {
     case 'not_found':
       return t('errorNotFound')
@@ -47,6 +47,20 @@ export function errorText(e: ErrorInfo | string | null | undefined): string {
   }
 }
 
-export function isNotFound(e: ErrorInfo | string | null | undefined): boolean {
-  return typeof e === 'object' && e?.code === 'not_found'
+export function isNotFound(e: ErrorInfo | null | undefined): boolean {
+  return e?.code === 'not_found'
+}
+
+/** What went wrong with a GitHub request, as a code to store and show later. */
+export function describeError(e: unknown): ErrorInfo {
+  if (e instanceof GitHubError) {
+    if (e.status === 401) return { code: 'session_expired' }
+    if (e.status === 404) return { code: 'not_found' }
+    if (e.status === 403) return { code: 'forbidden', detail: e.message }
+    return { code: 'http', status: e.status, detail: e.message }
+  }
+  // fetch rejects with a TypeError when there is no network
+  if (e instanceof TypeError) return { code: 'network' }
+  if (e instanceof AuthError && e.code === 'http_error') return { code: 'http', status: e.status, detail: e.message }
+  return { code: 'unknown', detail: e instanceof Error ? e.message : String(e) }
 }

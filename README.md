@@ -24,17 +24,14 @@ GitHub Actions 워크플로 진행도를 GitHub 페이지 안과 툴바에서 �
 
 ```
 src/
-  background/index.ts   폴링, 상태 전이 감지, 배지, 알림, 토큰 갱신(단일 소유)
-  lib/auth.ts           Device Flow, refresh
-  lib/github.ts         REST 클라이언트 + ETag 캐시
-  lib/progress.ts       진행률 계산 (단위 테스트 있음)
-  lib/estimate.ts       job·step별 이력으로 남은 시간 예측 (단위 테스트 있음)
-  lib/page.ts           GitHub URL 판별, 페이지별 run 선택 (단위 테스트 있음)
-  lib/storage.ts        타입이 지정된 chrome.storage 래퍼
-  popup/                툴바 팝업
-  options/              로그인, 저장소 선택, 알림 설정
-  content/              github.com 페이지 안 진행 바 (React 없이 DOM API)
-public/_locales/        UI 문구 (en, ko). 문구를 추가할 때는 두 파일에 같은 키를 넣기 (테스트가 검사)
+  background/   폴링, 상태 전이 감지, 배지, 알림, 토큰 갱신(단일 소유)
+  content/      github.com 페이지 안 진행 바와 상태 아이콘 동기화 (React 없이 DOM API)
+  popup/        툴바 팝업
+  options/      로그인, 저장소 선택, 알림 설정
+  shared/       화면들이 함께 쓰는 hook, 아이콘, 테마
+  lib/          판단 로직(진행률·남은 시간 예측·페이지 판별 등)과 GitHub 클라이언트. 대부분 순수 함수라 단위 테스트 있음
+public/_locales/  UI 문구 (en, ko). 문구를 추가할 때는 두 파일에 같은 키를 넣기 (테스트가 검사)
+docs/           설계 문서, 아이콘 원본
 ```
 
 ## 개발
