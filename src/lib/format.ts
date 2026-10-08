@@ -1,5 +1,15 @@
 import { t } from './i18n'
 
+export function formatDuration(ms: number): string {
+  const totalSec = Math.round(ms / 1000)
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  const s = totalSec % 60
+  if (h > 0) return t('durationHours', h, m)
+  if (m > 0) return t('durationMinutes', m, s.toString().padStart(2, '0'))
+  return t('durationSeconds', s)
+}
+
 export function timeAgo(ms: number, now = Date.now()): string {
   const sec = Math.max(0, Math.round((now - ms) / 1000))
   if (sec < 10) return t('timeJustNow')

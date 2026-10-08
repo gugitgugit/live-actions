@@ -116,12 +116,6 @@ describe('runsForPage', () => {
     const res = runsForPage({ kind: 'actions', repo: 'o/r' }, [run({ repo: 'o/other' })], null)
     expect(res.primary).toEqual([])
   })
-
-  it('tolerates runs stored before prNumbers existed', () => {
-    const legacy = run({}) as Partial<TrackedRun>
-    delete legacy.prNumbers
-    expect(runsForPage({ kind: 'pr', repo: 'o/r', number: 1 }, [legacy as TrackedRun], null).primary).toEqual([])
-  })
 })
 
 describe('latestPerWorkflow', () => {

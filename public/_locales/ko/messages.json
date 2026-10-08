@@ -184,6 +184,9 @@
   "bannerTitle": {
     "message": "Actions"
   },
+  "unnamedWorkflow": {
+    "message": "워크플로"
+  },
   "viewAllRuns": {
     "message": "모든 실행 보기"
   },
@@ -506,9 +509,6 @@
   },
   "add": {
     "message": "추가"
-  },
-  "ownerNameFormat": {
-    "message": "owner/name 형식으로 입력하세요. 예: vercel/next.js"
   },
   "notFoundApp": {
     "message": "찾을 수 없어요. 이 저장소에 앱이 설치되어 있나요?"

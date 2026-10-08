@@ -1,6 +1,17 @@
 import { t } from './i18n'
-import { isActive } from './progress'
 import type { ApiConclusion, ApiRunStatus } from './types'
+
+export const ACTIVE_STATUSES: ReadonlySet<ApiRunStatus> = new Set([
+  'queued',
+  'in_progress',
+  'waiting',
+  'requested',
+  'pending',
+])
+
+export function isActive(status: ApiRunStatus): boolean {
+  return ACTIVE_STATUSES.has(status)
+}
 
 export type Tone = 'running' | 'queued' | 'success' | 'failure' | 'neutral'
 

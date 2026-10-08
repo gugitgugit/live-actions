@@ -1,18 +1,19 @@
 import { AuthError, isTransientRefreshError, needsRefresh, refreshAuth } from '../lib/auth'
-import { errorText, isBackedOff, type ErrorInfo } from '../lib/errors'
+import { latestPerWorkflowEvent, rollup } from '../lib/commit'
+import { describeError, errorText, isBackedOff, type ErrorInfo } from '../lib/errors'
+import { buildHistory } from '../lib/estimate'
+import { isCounted } from '../lib/filters'
+import { formatDuration } from '../lib/format'
 import { GitHubClient, GitHubError, HttpCache } from '../lib/github'
 import { t, type MessageKey } from '../lib/i18n'
-import { latestPerWorkflowEvent, rollup } from '../lib/commit'
-import { isCounted } from '../lib/filters'
 import { PAGE_PORT, POPUP_PORT, type Message, type PageMessage, type TokenResponse } from '../lib/messages'
 import { runNotificationId, urlFromNotificationId } from '../lib/notifications'
-import { githubUrl } from '../lib/url'
-import { buildHistory } from '../lib/estimate'
-import { computeProgress, formatDuration, isActive, summarizeJobs } from '../lib/progress'
+import { computeProgress, summarizeJobs } from '../lib/progress'
 import { nextPollDelay } from '../lib/schedule'
 import { getItem, setItem, updateItem } from '../lib/storage'
-import { FAILED_CONCLUSIONS as FAILED } from '../lib/status'
-import type { ApiRun, AuthState, CommitInfo, DurationStat, Meta, NotifyMode, RepoInfo, Settings, TrackedRun, WorkflowHistory } from '../lib/types'
+import { FAILED_CONCLUSIONS, isActive } from '../lib/status'
+import type { ApiRun, AuthState, CommitInfo, HistoryEntry, Meta, NotifyMode, RepoInfo, Settings, TrackedRun, WorkflowHistory } from '../lib/types'
+import { githubUrl } from '../lib/url'
 
 const ALARM = 'poll'
 const IDLE_PERIOD_MIN = 1
@@ -21,7 +22,7 @@ const ACTIVE_PERIOD_MIN = 0.5
 const KEEP_COMPLETED_MS = 30 * 60_000
 /** per repository */
 const MAX_COMPLETED = 10
-const DURATION_TTL_MS = 6 * 60 * 60_000
+const HISTORY_TTL_MS = 6 * 60 * 60_000
 const REPO_INFO_TTL_MS = 24 * 60 * 60_000
 /** Notify for runs that started and finished between two polls, if the polls were close together. */
 const CATCH_UP_WINDOW_MS = 5 * 60_000
@@ -55,20 +56,17 @@ async function getValidAuth(): Promise<AuthState> {
 
 const getToken = async () => (await getValidAuth()).accessToken
 
+/** The next poll, triggered by the change to `auth`, clears what belonged to the session. */
 async function signOut(reason: ErrorInfo) {
-  await Promise.all([
-    setItem('auth', null),
-    setItem('runs', {}),
-    setItem('commits', {}),
-    setItem('httpCache', {}),
-    updateItem('meta', (m) => ({ ...m, lastError: reason })),
-  ])
+  await Promise.all([setItem('auth', null), updateItem('meta', (m) => ({ ...m, lastError: reason }))])
 }
 
 // ---------- polling ----------
 
 let inflight: Promise<void> | null = null
 let rerun = false
+/** set when settings or sign-in change, so repositories left alone after a 404 are asked again */
+let retryInaccessible = false
 
 /** @param force run again after the current poll if one is in flight (settings changed) */
 function poll(force = false): Promise<void> {
@@ -111,12 +109,12 @@ function scheduleNextPoll() {
 }
 
 async function doPoll() {
-  const [auth, settings, prevRuns, meta, durations, cacheEntries, repoInfo] = await Promise.all([
+  const [auth, settings, prevRuns, meta, histories, cacheEntries, repoInfo] = await Promise.all([
     getItem('auth'),
     getItem('settings'),
     getItem('runs'),
     getItem('meta'),
-    getItem('durations'),
+    getItem('histories'),
     getItem('httpCache'),
     getItem('repoInfo'),
   ])
@@ -128,9 +126,13 @@ async function doPoll() {
 
   if (!auth || repos.size === 0) {
     lastRuns = []
-    if (Object.keys(prevRuns).length) await setItem('runs', {})
     // nothing is polled for them any more; keep no state that pages would keep drawing
-    await setItem('commits', {})
+    await Promise.all([
+      Object.keys(prevRuns).length ? setItem('runs', {}) : null,
+      setItem('commits', {}),
+      // cached responses were fetched with the signed-out token
+      auth ? null : setItem('httpCache', {}),
+    ])
     await refreshBadge({}, meta, settings, auth?.login)
     await schedule(false)
     return
@@ -150,7 +152,6 @@ async function doPoll() {
   const lastPolledAt = meta.lastPolledAt
   const catchUp = lastPolledAt !== null && now - lastPolledAt < CATCH_UP_WINDOW_MS
   let unauthorized: string | null = null
-  let lastError: ErrorInfo | null = null
 
   const retryAll = retryInaccessible
   retryInaccessible = false
@@ -194,7 +195,7 @@ async function doPoll() {
               (prev === undefined && catchUp && Date.parse(run.updated_at) > lastPolledAt!))
 
           if (active || justFinished) {
-            const tracked = await track(client, fullName, run, durations, now)
+            const tracked = await track(client, fullName, run, histories, now)
             if (justFinished) {
               tracked.completedAt = now
               finished.push(tracked)
@@ -225,10 +226,9 @@ async function doPoll() {
     return
   }
 
+  // a summary error only when every watched repository failed
   const watchedErrors = Object.keys(repoErrors).filter((r) => watched.has(r))
-  if (watched.size > 0 && watchedErrors.length === watched.size) {
-    lastError = repoErrors[watchedErrors[0]]
-  }
+  const lastError = watched.size > 0 && watchedErrors.length === watched.size ? repoErrors[watchedErrors[0]] : null
 
   trimCompleted(nextRuns)
 
@@ -236,7 +236,7 @@ async function doPoll() {
   for (const run of finished) {
     // repositories that are only open in a tab show their result on the page, without alerts
     if (!isCounted(run, settings, auth.login)) continue
-    if (FAILED.has(run.conclusion)) newFailures++
+    if (FAILED_CONCLUSIONS.has(run.conclusion)) newFailures++
     notify(run, settings.notify)
   }
 
@@ -251,7 +251,7 @@ async function doPoll() {
       unseenFailures: m.unseenFailures + newFailures,
     })),
     setItem('runs', nextRuns),
-    setItem('durations', durations),
+    setItem('histories', histories),
     setItem('repoInfo', pruneRepoInfo(repoInfo, now)),
     // only commits open right now; closed tabs drop out
     setItem('commits', commits),
@@ -280,18 +280,18 @@ async function track(
   client: GitHubClient,
   repo: string,
   run: ApiRun,
-  durations: Record<string, DurationStat>,
+  histories: Record<string, HistoryEntry>,
   now: number,
 ): Promise<TrackedRun> {
   const [jobs, history] = await Promise.all([
     client.listJobs(repo, run.id).then(summarizeJobs),
-    getHistory(client, repo, run.workflow_id, durations, now),
+    getHistory(client, repo, run.workflow_id, histories, now),
   ])
   return {
     id: run.id,
     repo,
     workflowId: run.workflow_id,
-    workflowName: run.name ?? 'Workflow',
+    workflowName: run.name ?? t('unnamedWorkflow'),
     title: run.display_title,
     branch: run.head_branch,
     headSha: run.head_sha,
@@ -313,24 +313,23 @@ async function track(
 
 /**
  * How recent successful runs of a workflow went, job by job and step by step, cached for a
- * few hours. Costs one jobs request per sampled run on a cache miss. Mutates `durations`.
+ * few hours. Costs one jobs request per sampled run on a cache miss. Mutates `histories`.
  */
 async function getHistory(
   client: GitHubClient,
   repo: string,
   workflowId: number,
-  durations: Record<string, DurationStat>,
+  histories: Record<string, HistoryEntry>,
   now: number,
 ): Promise<WorkflowHistory | null> {
   const key = `${repo}#${workflowId}`
-  const cached = durations[key]
-  // entries from before the per-step estimate have no `history` and are refetched
-  if (cached?.history !== undefined && now - cached.fetchedAt < DURATION_TTL_MS) return cached.history
+  const cached = histories[key]
+  if (cached && now - cached.fetchedAt < HISTORY_TTL_MS) return cached.history
   try {
     const runs = await client.listRecentSuccessfulRuns(repo, workflowId)
     const samples = await Promise.all(runs.map(async (run) => ({ run, jobs: await client.listJobs(repo, run.id) })))
     const history = buildHistory(samples)
-    durations[key] = { history, fetchedAt: now }
+    histories[key] = { history, fetchedAt: now }
     return history
   } catch {
     return cached?.history ?? null
@@ -393,7 +392,7 @@ const CONCLUSION_TITLE: Record<string, MessageKey> = {
 
 function notify(run: TrackedRun, mode: NotifyMode) {
   if (mode === 'none') return
-  if (mode === 'failure' && !FAILED.has(run.conclusion)) return
+  if (mode === 'failure' && !FAILED_CONCLUSIONS.has(run.conclusion)) return
   const parts = [run.repo, run.branch, formatDuration(run.progress.elapsedMs)].filter(Boolean)
   chrome.notifications.create(runNotificationId(run.htmlUrl), {
     type: 'basic',
@@ -401,7 +400,7 @@ function notify(run: TrackedRun, mode: NotifyMode) {
     title: `${t(CONCLUSION_TITLE[run.conclusion ?? ''] ?? 'notifFinished')} · ${run.workflowName}`,
     message: run.title,
     contextMessage: parts.join(' · '),
-    priority: FAILED.has(run.conclusion) ? 2 : 0,
+    priority: FAILED_CONCLUSIONS.has(run.conclusion) ? 2 : 0,
   })
 }
 
@@ -454,9 +453,6 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM) poll()
 })
 
-/** set when settings or sign-in change, so repositories left alone after a 404 are asked again */
-let retryInaccessible = false
-
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && ('settings' in changes || 'auth' in changes)) {
     retryInaccessible = true
@@ -500,10 +496,6 @@ function viewedCommits(repo: string): Set<string> {
   )
 }
 
-function updateFastPolling() {
-  scheduleNextPoll()
-}
-
 chrome.runtime.onConnect.addListener((port) => {
   if (port.sender?.id !== chrome.runtime.id) return
 
@@ -512,12 +504,12 @@ chrome.runtime.onConnect.addListener((port) => {
     Promise.all([updateItem('meta', (m) => ({ ...m, unseenFailures: 0 })), getItem('settings'), getItem('auth')]).then(
       async ([meta, settings, auth]) => refreshBadge(await getItem('runs'), meta, settings, auth?.login),
     )
-    updateFastPolling()
+    scheduleNextPoll()
     poll()
     port.onDisconnect.addListener(() => {
       readDisconnectError()
       popupPorts--
-      updateFastPolling()
+      scheduleNextPoll()
     })
     return
   }
@@ -530,14 +522,14 @@ chrome.runtime.onConnect.addListener((port) => {
       const before = pagePorts.get(port)
       const sha = msg.sha && /^[0-9a-f]{40}$/.test(msg.sha) ? msg.sha : null
       pagePorts.set(port, { repo: msg.repo, sha })
-      updateFastPolling()
+      scheduleNextPoll()
       // a newly opened repository or commit should not wait for the next tick
       if (msg.repo && (msg.repo !== before?.repo || sha !== before?.sha)) poll(true)
     })
     port.onDisconnect.addListener(() => {
       readDisconnectError()
       pagePorts.delete(port)
-      updateFastPolling()
+      scheduleNextPoll()
     })
   }
 })
@@ -582,16 +574,4 @@ function readDisconnectError() {
 
 function runKey(repo: string, id: number) {
   return `${repo}#${id}`
-}
-
-function describeError(e: unknown): ErrorInfo {
-  if (e instanceof GitHubError) {
-    if (e.status === 401) return { code: 'session_expired' }
-    if (e.status === 404) return { code: 'not_found' }
-    if (e.status === 403) return { code: 'forbidden', detail: e.message }
-    return { code: 'http', status: e.status, detail: e.message }
-  }
-  if (e instanceof TypeError) return { code: 'network' }
-  if (e instanceof AuthError && e.code === 'http_error') return { code: 'http', status: e.status, detail: e.message }
-  return { code: 'unknown', detail: e instanceof Error ? e.message : String(e) }
 }

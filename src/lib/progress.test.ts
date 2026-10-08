@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { computeProgress, formatDuration, progressSummary, timeLabel, stepCeiling, stepRatio, summarizeJobs } from './progress'
+import { formatDuration } from './format'
+import { computeProgress, progressSummary, stepCeiling, stepRatio, summarizeJobs, timeLabel } from './progress'
 import type { ApiJob, ApiRun, JobSummary, Progress, WorkflowHistory } from './types'
 
 /** history with a run total only, no per-job figures: the whole-run fallback */
@@ -14,6 +15,9 @@ const job = (over: Partial<JobSummary>): JobSummary => ({
   stepsDone: 0,
   stepsTotal: 0,
   currentStep: null,
+  startedAt: null,
+  completedAt: null,
+  steps: [],
   ...over,
 })
 

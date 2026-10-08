@@ -1,4 +1,4 @@
-import { isActive } from './progress'
+import { isActive } from './status'
 import type { TrackedRun } from './types'
 
 /** Pages that get in-page progress. */
@@ -83,7 +83,7 @@ export function runsForPage(
   if (ctx.kind === 'actions') return { primary: sortRuns(inRepo), othersActive: 0 }
 
   if (ctx.kind === 'pr') {
-    const primary = inRepo.filter((r) => (r.prNumbers ?? []).includes(ctx.number))
+    const primary = inRepo.filter((r) => r.prNumbers.includes(ctx.number))
     return { primary: latestPerWorkflow(primary), othersActive: 0 }
   }
 

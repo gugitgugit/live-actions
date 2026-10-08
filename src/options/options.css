@@ -180,16 +180,6 @@ code {
   gap: 10px;
   padding: 7px 12px;
 }
-.repo-list label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  cursor: pointer;
-}
-.repo-list label:hover {
-  background: var(--bg-subtle);
-}
 .repo-name {
   overflow: hidden;
   text-overflow: ellipsis;

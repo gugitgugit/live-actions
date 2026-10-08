@@ -1,5 +1,4 @@
-import { isActive } from './progress'
-import { FAILED_CONCLUSIONS } from './status'
+import { FAILED_CONCLUSIONS, isActive } from './status'
 import type { ApiRun, CommitInfo } from './types'
 
 /** The three states GitHub's commit status badge shows. */

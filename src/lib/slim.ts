@@ -1,11 +1,8 @@
 import type { ApiJob, ApiRepo, ApiRun, ApiStep } from './types'
 
-// GitHub's responses carry far more than the extension reads: every run embeds its
-// repository, head repository and head commit. A 20-run list is about 250 KB as returned and
-// about 12 KB with only the fields in lib/types.ts. Responses are kept in the ETag cache in
-// chrome.storage (10 MB in total, rewritten on every poll that got new data), so they are
-// cut down to those fields before caching. A field the code starts reading must be added
-// here too, or it will be missing.
+// Responses are cut down to the fields in lib/types.ts before they go into the ETag cache in
+// chrome.storage: every run embeds its repository and head commit, about 20x what is read.
+// A field the code starts reading must be added here too, or it will be missing.
 
 const pick = <T extends object, K extends keyof T>(obj: T, keys: readonly K[]): Pick<T, K> => {
   const out = {} as Pick<T, K>
