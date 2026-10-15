@@ -1,6 +1,6 @@
 # Chrome Web Store 등록 정보
 
-[개발자 대시보드](https://chrome.google.com/webstore/devconsole)에 그대로 붙여 넣을 내용입니다. 스토어 페이지: <https://chromewebstore.google.com/detail/live-actions-for-github/fnfmpglkebgbokpmlcbadploemgilpgl> (항목 ID `fnfmpglkebgbokpmlcbadploemgilpgl`, 2026-10-09 v1.0.0 공개) 기능·권한·저장 데이터가 바뀌면 이 문서와 [개인정보처리방침](../../PRIVACY.md)을 함께 고칩니다.
+[개발자 대시보드](https://chrome.google.com/webstore/devconsole)에 그대로 붙여 넣을 내용입니다. 스토어 페이지: <https://chromewebstore.google.com/detail/live-actions-for-github/fnfmpglkebgbokpmlcbadploemgilpgl> (항목 ID `fnfmpglkebgbokpmlcbadploemgilpgl`) 기능·권한·저장 데이터가 바뀌면 이 문서와 [개인정보처리방침](../../PRIVACY.md)을 함께 고칩니다.
 
 ## 패키지
 
@@ -141,3 +141,10 @@ Show the progress and results of the user's GitHub Actions workflow runs – ins
 4. zip 업로드 → 위 내용 입력 → 심사 제출. 다음 날 승인·공개됨 (호스트 권한으로 "자세한 검토" 안내가 떴지만 하루 만에 통과)
 
 업데이트는 버전을 올린 zip을 같은 항목의 **패키지**에 올리고 다시 제출합니다.
+
+## 버전 기록
+
+| 버전 | 공개일 | 내용 |
+|---|---|---|
+| 1.1.0 | 2026-10-15 (제출 당일 승인) | 나란히 도는 job마다 진행 바 |
+| 1.0.0 | 2026-10-09 (제출 다음 날 승인) | 첫 공개 |
