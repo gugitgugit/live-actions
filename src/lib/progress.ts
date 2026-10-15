@@ -1,4 +1,4 @@
-import { executionStart, remainingByJobs } from './estimate'
+import { executionStart, jobEnd, remainingByJobs } from './estimate'
 import { formatDuration } from './format'
 import { t } from './i18n'
 import type { ApiJob, ApiRun, JobSummary, Progress, TrackedRun, WorkflowHistory } from './types'
@@ -146,7 +146,8 @@ export function timeLabel(p: Progress, queued: boolean): string {
  * The text under a progress bar. Counts what is informative for the run's shape:
  * - one job: its steps ("Steps 4/11"), since "Jobs 0/1" only changes at the very end
  * - several jobs, one running: jobs and that job's steps ("Jobs 2/5 · Steps 3/8")
- * - several running at once (a matrix): jobs only; whose steps would be ambiguous
+ * - several running at once (a matrix): jobs only; each running job gets its own bar
+ *   (`parallelJobs`), and one job's step here would read as the whole run's
  * followed by the step running now. Step counts include GitHub's own setup and cleanup
  * steps, the same ones the progress bar is based on.
  */
@@ -158,7 +159,45 @@ export function progressSummary(jobs: JobSummary[]): string {
     // a lone job's count says nothing new, unless there is no step count to show instead
     jobs.length > 1 || !only ? jobCount : null,
     only ? t('stepsProgress', only.stepsDone, only.stepsTotal) : null,
-    running[0]?.currentStep ?? null,
+    running.length === 1 ? running[0].currentStep : null,
   ]
   return parts.filter(Boolean).join(' · ')
+}
+
+export interface JobProgress {
+  id: number
+  name: string
+  /** 0..1 */
+  ratio: number
+  elapsedMs: number
+  /** null when the job has no history to go on */
+  remainingMs: number | null
+  step: string | null
+}
+
+/**
+ * Jobs running side by side, one bar each, so a matrix does not hide behind the run's
+ * average. Empty when one job or none is running: the run's own bar already says it.
+ */
+export function parallelJobs(run: TrackedRun, now: number): JobProgress[] {
+  const running = run.jobs.filter((j) => j.status === 'in_progress')
+  if (running.length < 2) return []
+  return running.map((job) => {
+    const started = Date.parse(job.startedAt ?? '')
+    const elapsedMs = Number.isFinite(started) ? Math.max(0, now - started) : 0
+    const end = jobEnd(job, run.history, now, run.fetchedAt)
+    const remainingMs = end === null ? null : Math.max(0, end - now)
+    const ratio =
+      remainingMs === null
+        ? job.stepsTotal > 0 ? job.stepsDone / job.stepsTotal : 0
+        : elapsedMs + remainingMs > 0 ? elapsedMs / (elapsedMs + remainingMs) : 0
+    return { id: job.id, name: job.name, ratio: Math.min(MAX_ACTIVE_RATIO, ratio), elapsedMs, remainingMs, step: job.currentStep }
+  })
+}
+
+/** Like `timeLabel`, for one job: time left, "finishing up", or elapsed time without history. */
+export function jobTimeLabel(p: JobProgress): string {
+  if (p.remainingMs === null) return formatDuration(p.elapsedMs)
+  if (p.remainingMs < 500) return t('finishingUp')
+  return t('timeLeft', formatDuration(p.remainingMs))
 }

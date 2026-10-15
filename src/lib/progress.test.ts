@@ -154,12 +154,12 @@ describe('progressSummary', () => {
     expect(progressSummary(jobs)).toBe('Jobs 1/3 · Steps 3/8 · Run tests')
   })
 
-  it('counts only jobs while several run at once', () => {
+  it('counts only jobs while several run at once (each gets its own bar)', () => {
     const jobs = [
-      job({ id: 1, stepsDone: 2, stepsTotal: 8, currentStep: 'Test (node 20)' }),
-      job({ id: 2, stepsDone: 5, stepsTotal: 8, currentStep: 'Test (node 22)' }),
+      job({ id: 1, stepsDone: 2, stepsTotal: 8, currentStep: 'Run tests' }),
+      job({ id: 2, stepsDone: 5, stepsTotal: 8, currentStep: 'Install' }),
     ]
-    expect(progressSummary(jobs)).toBe('Jobs 0/2 · Test (node 20)')
+    expect(progressSummary(jobs)).toBe('Jobs 0/2')
   })
 
   it('falls back to the job count before steps are reported', () => {

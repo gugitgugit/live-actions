@@ -103,6 +103,18 @@ a { color: inherit; text-decoration: none; }
 }
 .meta { color: var(--ap-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .row .bar { margin: 6px 0 0 24px; }
+/* jobs running side by side: one compact bar each, under the run's bar, in shared columns
+   so the bars line up; the step name gives way before the time left does */
+.jobs { list-style: none; margin: 0; padding: 0 12px 8px 36px; display: grid; grid-template-columns: fit-content(35%) minmax(40px, 1fr) fit-content(50%); gap: 2px 8px; align-items: center; }
+.jobs[hidden] { display: none; }
+.job { display: contents; }
+.job-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ap-fg); }
+.row .job .bar { margin: 0; }
+.job .meta { display: flex; min-width: 0; }
+.job-step { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.job-step:not(:empty)::after { content: " · "; white-space: pre; }
+.job-time { flex: none; }
+.jobs .more { grid-column: 1 / -1; color: var(--ap-muted); }
 .others, .hint {
   display: block;
   margin: 6px 2px 0;

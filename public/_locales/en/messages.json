@@ -589,5 +589,21 @@
   },
   "authNetwork": {
     "message": "Network error. Check your connection and try again."
+  },
+  "jobProgressLabel": {
+    "message": "$JOB$ progress",
+    "placeholders": {
+      "job": {
+        "content": "$1"
+      }
+    }
+  },
+  "moreJobs": {
+    "message": "+$COUNT$ more",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }
