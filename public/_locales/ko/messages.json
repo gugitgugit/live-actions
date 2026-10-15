@@ -589,5 +589,21 @@
   },
   "authNetwork": {
     "message": "네트워크 오류예요. 연결을 확인하고 다시 시도해 주세요."
+  },
+  "jobProgressLabel": {
+    "message": "$JOB$ 진행률",
+    "placeholders": {
+      "job": {
+        "content": "$1"
+      }
+    }
+  },
+  "moreJobs": {
+    "message": "외 $COUNT$개",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

@@ -1,6 +1,6 @@
 import { formatDuration, timeAgo } from '../lib/format'
 import { t, tAround, type MessageKey } from '../lib/i18n'
-import { progressSummary, runProgress, timeLabel } from '../lib/progress'
+import { jobTimeLabel, parallelJobs, progressSummary, runProgress, timeLabel } from '../lib/progress'
 import { isActive, toneOf } from '../lib/status'
 import type { TrackedRun } from '../lib/types'
 import { iconSvg } from '../shared/icons'
@@ -151,9 +151,12 @@ function createBannerRow(key: string): HTMLLIElement {
   const top = el('div', 'top')
   top.append(el('span', 'icon'), el('span', 'workflow'), el('span', 'title'), el('span', 'meta'))
   link.append(top, createBar(t('workflowProgressLabel')))
-  row.append(link)
+  row.append(link, el('ul', 'jobs'))
   return row
 }
+
+/** At most this many jobs running side by side get their own bar; the rest are counted. */
+const MAX_JOB_BARS = 3
 
 function updateBannerRow(row: HTMLLIElement, run: TrackedRun, now: number) {
   const link = row.querySelector('a') as HTMLAnchorElement
@@ -171,14 +174,54 @@ function updateBannerRow(row: HTMLLIElement, run: TrackedRun, now: number) {
     updateBar(bar, info.pct, info.failing)
     setText(meta, `${info.step} · ${info.time}`)
     row.classList.remove('done')
+    updateJobBars(row.querySelector('.jobs') as HTMLUListElement, run, now)
   } else {
     bar.hidden = true
+    updateJobBars(row.querySelector('.jobs') as HTMLUListElement, null, now)
     const result = t(RESULT_LABEL[run.conclusion ?? ''] ?? 'resultFinished')
     // when GitHub finished it, not when a poll noticed (a few seconds later)
     const when = ` · ${timeAgo(Date.parse(run.updatedAt), now)}`
     setText(meta, `${t('resultIn', result, formatDuration(run.progress.elapsedMs))}${when}`)
     row.classList.add('done')
   }
+}
+
+/** One bar per job running side by side; empty (hidden) when one job or none is running. */
+function updateJobBars(list: HTMLUListElement, run: TrackedRun | null, now: number) {
+  const jobs = run ? parallelJobs(run, now) : []
+  const shown = jobs.slice(0, MAX_JOB_BARS)
+  const keep = new Set<string>()
+  for (const job of shown) {
+    const key = `${job.id}`
+    keep.add(key)
+    let item = list.querySelector<HTMLLIElement>(`li[data-key="${key}"]`)
+    if (!item) {
+      item = el('li', 'job')
+      item.dataset.key = key
+      const meta = el('span', 'meta')
+      meta.append(el('span', 'job-step'), el('span', 'job-time'))
+      item.append(el('span', 'job-name'), createBar(t('jobProgressLabel', job.name)), meta)
+    }
+    setText(item.querySelector('.job-name')!, job.name)
+    item.querySelector('.job-name')!.setAttribute('title', job.name)
+    updateBar(item.querySelector('.bar') as HTMLElement, Math.round(job.ratio * 100), false)
+    setText(item.querySelector('.job-step')!, job.step ?? '')
+    setText(item.querySelector('.job-time')!, jobTimeLabel(job))
+    list.append(item) // keeps order
+  }
+  const hidden = jobs.length - shown.length
+  let more = list.querySelector<HTMLLIElement>('li.more')
+  if (hidden > 0) {
+    more ??= el('li', 'more')
+    setText(more, t('moreJobs', hidden))
+    list.append(more)
+  } else {
+    more?.remove()
+  }
+  for (const item of [...list.children] as HTMLElement[]) {
+    if (!item.classList.contains('more') && !keep.has(item.dataset.key ?? '')) item.remove()
+  }
+  list.hidden = jobs.length === 0
 }
 
 // ---------- compact bar inside an Actions list row ----------

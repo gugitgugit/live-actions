@@ -165,6 +165,12 @@ export function remainingByJobs(
   return last - now
 }
 
+/** When a running job is expected to end, or null when the job has no history. */
+export function jobEnd(job: JobSummary, history: WorkflowHistory | null, now: number, fetchedAt = now): number | null {
+  const h = history?.jobs[job.name]
+  return h ? runningEnd(job, h, now, fetchedAt) : null
+}
+
 /**
  * A running job: the steps still to come, after what is usually left of the current one.
  * A step that was within its usual time when last fetched is assumed to have finished on

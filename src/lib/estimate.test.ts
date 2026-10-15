@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { formatDuration } from './format'
 import { buildHistory, executionStart, median, remainingByJobs, stepKeys } from './estimate'
-import { computeProgress } from './progress'
-import type { ApiJob, ApiRun, JobSummary, StepSummary, WorkflowHistory } from './types'
+import { computeProgress, jobTimeLabel, parallelJobs } from './progress'
+import type { ApiJob, ApiRun, JobSummary, StepSummary, TrackedRun, WorkflowHistory } from './types'
 
 const T0 = Date.parse('2026-01-01T00:00:00Z')
 const iso = (sec: number) => new Date(T0 + sec * 1000).toISOString()
@@ -185,5 +186,46 @@ describe('computeProgress with history', () => {
     const p = computeProgress(run, jobs, history, at(30))
     expect(p.overtime).toBe(true)
     expect(p.overdueMs).toBe(5000)
+  })
+})
+
+describe('parallelJobs', () => {
+  const names = ['Set up job', 'Install', 'Test', 'Complete job']
+  const history: WorkflowHistory = {
+    totalMs: 20_000,
+    jobs: {
+      'Test (node 20)': { durationMs: 20_000, steps: { 'Set up job': 1000, Install: 5000, Test: 12_000, 'Complete job': 1000 }, tailMs: 1000, after: [], startDelayMs: 0 },
+      'Test (node 22)': { durationMs: 20_000, steps: { 'Set up job': 1000, Install: 5000, Test: 12_000, 'Complete job': 1000 }, tailMs: 1000, after: [], startDelayMs: 0 },
+    },
+  }
+  const tracked = (jobs: JobSummary[], over: Partial<TrackedRun> = {}) => ({ jobs, history, fetchedAt: at(10), ...over }) as TrackedRun
+
+  it('is empty unless several jobs run at once', () => {
+    const one = [job('Test (node 20)', { steps: steps(names, 1, 1) }), job('Build', { status: 'queued', startedAt: null })]
+    expect(parallelJobs(tracked(one), at(10))).toEqual([])
+  })
+
+  it('gives each running job its own time left and ratio', () => {
+    // node 20 is in Test (started 6 s, usual 12 s); node 22 is still installing
+    const jobs = [
+      job('Test (node 20)', { id: 1, steps: steps(names, 2, 6), currentStep: 'Test' }),
+      job('Test (node 22)', { id: 2, steps: steps(names, 1, 1), currentStep: 'Install' }),
+    ]
+    const [a, b] = parallelJobs(tracked(jobs), at(10))
+    expect(a).toMatchObject({ name: 'Test (node 20)', step: 'Test', elapsedMs: 10_000, remainingMs: 8000 + 1000 + 1000 })
+    expect(a.ratio).toBeCloseTo(10 / 20)
+    expect(b).toMatchObject({ name: 'Test (node 22)', remainingMs: 12_000 + 1000 + 1000 })
+    expect(b.ratio).toBeLessThan(a.ratio)
+    expect(jobTimeLabel(a)).toBe('~10s left')
+  })
+
+  it('falls back to steps and elapsed time for a job without history', () => {
+    const jobs = [
+      job('Lint', { id: 1, stepsDone: 2, stepsTotal: 4, steps: steps(['a', 'b', 'c', 'd'], 2, 8) }),
+      job('Test (node 20)', { id: 2, steps: steps(names, 1, 1) }),
+    ]
+    const [lint] = parallelJobs(tracked(jobs), at(10))
+    expect(lint).toMatchObject({ remainingMs: null, ratio: 0.5 })
+    expect(jobTimeLabel(lint)).toBe(formatDuration(10_000))
   })
 })
