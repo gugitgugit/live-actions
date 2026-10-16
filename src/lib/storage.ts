@@ -1,4 +1,4 @@
-import type { AuthState, CacheEntry, CommitInfo, HistoryEntry, Meta, RepoInfo, Settings, TrackedRun } from './types'
+import type { AuthEvent, AuthState, CacheEntry, CommitInfo, HistoryEntry, Meta, RepoInfo, Settings, TrackedRun } from './types'
 
 export interface StorageSchema {
   auth: AuthState | null
@@ -12,6 +12,8 @@ export interface StorageSchema {
   /** commits shown in an open tab, key: "owner/name@sha" */
   commits: Record<string, CommitInfo>
   meta: Meta
+  /** newest last; not cleared by signing out or in */
+  authLog: AuthEvent[]
 }
 
 const defaults: StorageSchema = {
@@ -23,6 +25,7 @@ const defaults: StorageSchema = {
   repoInfo: {},
   commits: {},
   meta: { lastPolledAt: null, lastError: null, repoErrors: {}, rateLimit: null, unseenFailures: 0 },
+  authLog: [],
 }
 
 export type StorageKey = keyof StorageSchema

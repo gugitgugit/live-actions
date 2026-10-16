@@ -1,4 +1,4 @@
-import { AuthError, isTransientRefreshError, needsRefresh, refreshAuth } from '../lib/auth'
+import { appendAuthEvent, authErrorDetail, canRecover, isTransientRefreshError, needsRefresh, refreshAuth } from '../lib/auth'
 import { latestPerWorkflowEvent, rollup } from '../lib/commit'
 import { describeError, errorText, isBackedOff, type ErrorInfo } from '../lib/errors'
 import { buildHistory } from '../lib/estimate'
@@ -12,7 +12,7 @@ import { computeProgress, summarizeJobs } from '../lib/progress'
 import { nextPollDelay } from '../lib/schedule'
 import { getItem, setItem, updateItem } from '../lib/storage'
 import { FAILED_CONCLUSIONS, isActive } from '../lib/status'
-import type { ApiRun, AuthState, CommitInfo, HistoryEntry, Meta, NotifyMode, RepoInfo, Settings, TrackedRun, WorkflowHistory } from '../lib/types'
+import type { ApiRun, AuthEvent, AuthState, CommitInfo, HistoryEntry, Meta, NotifyMode, RepoInfo, Settings, TrackedRun, WorkflowHistory } from '../lib/types'
 import { githubUrl } from '../lib/url'
 
 const ALARM = 'poll'
@@ -30,28 +30,74 @@ const CATCH_UP_WINDOW_MS = 5 * 60_000
 // ---------- auth ----------
 
 let refreshing: Promise<AuthState> | null = null
+/** when a 401 was last recovered from with a fresh token (see canRecover) */
+let lastRecoveredAt: number | null = null
+
+/** Kept across sign-outs, so the reason for an unexpected one can be looked up later. */
+async function logAuth(event: AuthEvent['event'], detail?: string) {
+  await updateItem('authLog', (log) => appendAuthEvent(log, { at: Date.now(), event, ...(detail ? { detail } : {}) }))
+}
+
+/** Refresh tokens are single-use: every caller shares one in-flight refresh. */
+function refreshOnce(auth: AuthState): Promise<AuthState> {
+  refreshing ??= refreshAuth(auth)
+    .then(
+      async (next) => {
+        await setItem('auth', next)
+        await logAuth('refreshed')
+        return next
+      },
+      async (e: unknown) => {
+        // a final failure is logged with the sign-out it leads to
+        if (isTransientRefreshError(e)) await logAuth('refresh_failed', authErrorDetail(e))
+        throw e
+      },
+    )
+    .finally(() => {
+      refreshing = null
+    })
+  return refreshing
+}
 
 async function getValidAuth(): Promise<AuthState> {
   const auth = await getItem('auth')
   if (!auth) throw new GitHubError(401, 'Not signed in')
   if (!needsRefresh(auth)) return auth
-  // Refresh tokens are single-use: share one in-flight refresh between callers.
-  refreshing ??= refreshAuth(auth)
-    .then(async (next) => {
-      await setItem('auth', next)
-      return next
-    })
-    .finally(() => {
-      refreshing = null
-    })
   try {
-    return await refreshing
+    return await refreshOnce(auth)
   } catch (e) {
     // keep the session: the next poll tries again, and the error shows as a network/HTTP problem
     if (isTransientRefreshError(e)) throw e
     // the reason is kept with the sign-out, so an unexpected one can be told apart later
-    throw new GitHubError(401, `refresh: ${e instanceof AuthError ? e.code : String(e)}`)
+    throw new GitHubError(401, `refresh: ${authErrorDetail(e)}`)
   }
+}
+
+/**
+ * A 401 from the API, before signing out: GitHub can refuse a token before its expiry, and a
+ * fresh one may still be good. `retry` polls again with it; `keep` leaves the session for the
+ * next poll (offline); `sign_out` is final. Refresh failures (`refresh: …`) arrive here as 401s
+ * too and are final.
+ */
+async function recoverFrom401(auth: AuthState, detail: string): Promise<{ outcome: 'retry' | 'keep' | 'sign_out'; detail: string }> {
+  const now = Date.now()
+  if (detail.startsWith('refresh:') || !canRecover(auth, lastRecoveredAt, now)) return { outcome: 'sign_out', detail }
+  const latest = await getItem('auth')
+  if (!latest) return { outcome: 'sign_out', detail }
+  lastRecoveredAt = now
+  // already replaced while this poll ran (a refresh, or signing in again): just poll again
+  if (latest.accessToken !== auth.accessToken) {
+    await logAuth('recovered', `${detail}; token was already replaced`)
+    return { outcome: 'retry', detail }
+  }
+  try {
+    await refreshOnce(latest)
+  } catch (e) {
+    if (isTransientRefreshError(e)) return { outcome: 'keep', detail }
+    return { outcome: 'sign_out', detail: `${detail}; refresh: ${authErrorDetail(e)}` }
+  }
+  await logAuth('recovered', detail)
+  return { outcome: 'retry', detail }
 }
 
 const getToken = async () => (await getValidAuth()).accessToken
@@ -59,6 +105,7 @@ const getToken = async () => (await getValidAuth()).accessToken
 /** The next poll, triggered by the change to `auth`, clears what belonged to the session. */
 async function signOut(reason: ErrorInfo) {
   await Promise.all([setItem('auth', null), updateItem('meta', (m) => ({ ...m, lastError: reason }))])
+  await logAuth('signed_out', reason.detail ?? reason.code)
 }
 
 // ---------- polling ----------
@@ -228,7 +275,16 @@ async function doPoll() {
   )
 
   if (unauthorized !== null) {
-    await signOut({ code: 'session_expired', detail: unauthorized })
+    const recovery = await recoverFrom401(auth, unauthorized)
+    if (recovery.outcome === 'retry') {
+      rerun = true
+      return
+    }
+    if (recovery.outcome === 'keep') {
+      await schedule(false)
+      return
+    }
+    await signOut({ code: 'session_expired', detail: recovery.detail })
     await refreshBadge({}, meta, settings, auth.login)
     return
   }

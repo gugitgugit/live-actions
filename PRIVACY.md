@@ -1,6 +1,6 @@
 # Live Actions for GitHub Privacy Policy
 
-_Last updated: 2026-10-08_ · [한국어](#한국어)
+_Last updated: 2026-10-16_ · [한국어](#한국어)
 
 Live Actions for GitHub is a browser extension that shows the progress of GitHub Actions workflow runs inside GitHub, in its toolbar popup and in desktop notifications. It has no server of its own: everything it keeps stays in your browser, and it talks only to GitHub.
 
@@ -14,8 +14,9 @@ All of the following is stored locally in your browser with `chrome.storage.loca
 - **Timing history**: how long each job and step took in recent successful runs, used to estimate the time left; kept for up to 6 hours
 - **Repository details**: the default branch of repositories you view, kept for up to a day, and the combined Actions status of commits shown in your open tabs
 - **Status**: when GitHub was last checked, the last error, and the number of failures you have not seen yet
+- **Sign-in log**: when you signed in, when the sign-in was renewed or ended, and the error code if it failed (the last 20 events, no tokens), used to find out why a sign-in ended unexpectedly
 
-Signing out removes the sign-in, workflow data, timing history and repository details; your settings stay. Uninstalling the extension removes everything.
+Signing out removes the sign-in, workflow data, timing history and repository details; your settings and the sign-in log stay. Uninstalling the extension removes everything.
 
 ## Pages you visit on github.com
 
@@ -55,8 +56,9 @@ Live Actions for GitHub는 GitHub Actions 워크플로 진행 상황을 GitHub �
 - **소요 시간 이력**: 남은 시간 예측에 쓰는 최근 성공 run의 job·step별 소요 시간, 최대 6시간 보관
 - **저장소 정보**: 보고 있는 저장소의 기본 브랜치(최대 하루 보관), 열린 탭에 보이는 커밋의 Actions 합산 상태
 - **상태**: 마지막 조회 시각, 마지막 오류, 아직 확인하지 않은 실패 수
+- **로그인 기록**: 로그인, 로그인 갱신·종료 시각과 실패했을 때의 오류 코드(최근 20건, 토큰 없음). 로그인이 예기치 않게 풀린 원인을 찾는 데 씁니다
 
-로그아웃하면 로그인, 워크플로 정보, 소요 시간 이력, 저장소 정보가 지워지고 설정은 남습니다. 확장 프로그램을 삭제하면 전부 지워집니다.
+로그아웃하면 로그인, 워크플로 정보, 소요 시간 이력, 저장소 정보가 지워지고 설정과 로그인 기록은 남습니다. 확장 프로그램을 삭제하면 전부 지워집니다.
 
 ### github.com에서 방문하는 페이지
 
