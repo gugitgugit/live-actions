@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { APP_SLUG, AuthError, isAppConfigured, pollForToken, requestDeviceCode, type DeviceCode } from '../lib/auth'
+import { APP_SLUG, AuthError, appendAuthEvent, isAppConfigured, pollForToken, requestDeviceCode, type DeviceCode } from '../lib/auth'
 import { errorText, type ErrorInfo } from '../lib/errors'
 import { GitHubClient, GitHubError } from '../lib/github'
 import { t, tAround, type MessageKey } from '../lib/i18n'
@@ -44,6 +44,7 @@ export function Options() {
 async function saveAuth(auth: AuthState) {
   const viewer = await new GitHubClient({ getToken: async () => auth.accessToken }).getViewer()
   await updateItem('meta', (m) => ({ ...m, lastError: null }))
+  await updateItem('authLog', (log) => appendAuthEvent(log, { at: Date.now(), event: 'signed_in', detail: auth.kind }))
   await setItem('auth', { ...auth, login: viewer.login })
 }
 

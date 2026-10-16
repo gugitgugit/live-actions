@@ -351,7 +351,8 @@ private 저장소의 Actions를 보려면 사용자 토큰이 필요합니다. �
 - 만료 5분 전부터 갱신합니다(`needsRefresh`).
 - **refresh token은 한 번만 쓸 수 있습니다.** Options page와 background가 동시에 갱신하면 한쪽이 실패하고 로그아웃됩니다. 그래서 갱신은 **background만** 하고, 진행 중인 갱신 Promise를 공유합니다. Options page는 토큰이 필요하면 `getToken` 메시지로 background에 요청합니다.
 - **갱신 실패는 이유로 구분합니다**(`isTransientRefreshError`). 네트워크 오류(`fetch`가 `TypeError`로 거부)와 토큰 엔드포인트의 5xx·429는 일시적이라 세션과 이전 run을 유지하고, 저장소별 오류로 표시한 뒤 다음 폴링에서 다시 갱신합니다. refresh token 만료·없음, GitHub의 거부(`bad_refresh_token` 등), 그 외 4xx만 로그아웃합니다. 잠자기에서 깨어난 노트북은 access token이 이미 만료된 상태로 네트워크가 붙기 전에 첫 폴링을 할 수 있는데, 이때 로그아웃되지 않아야 합니다. 몇 번 재시도한 뒤 로그아웃하는 안은 네트워크가 오래 끊기면 결국 로그아웃되어 기각했습니다.
-- 로그아웃할 때는 이유를 `meta.lastError.detail`에 함께 저장합니다(예: `refresh: bad_refresh_token`). 화면 문구는 "다시 로그인"으로 같고, 예상치 못한 로그아웃이 생기면 저장 데이터에서 원인을 확인할 수 있습니다.
+- **API가 401을 주면 바로 로그아웃하지 않고 토큰을 한 번 갱신해 봅니다**(`canRecover`, `recoverFrom401`). GitHub는 만료 전의 토큰도 거부할 수 있고(취소, 더 새 토큰으로 교체 등), refresh token으로 받은 새 토큰은 통할 수 있기 때문입니다. 새 토큰을 받으면 바로 다시 폴링하고, 갱신이 거부되면 로그아웃, 네트워크 문제면 세션을 유지합니다. 폴링하는 사이 토큰이 이미 바뀌었으면 갱신 없이 다시 폴링합니다. 회복 직후 5분 안에 또 401이 오면 새 토큰도 거부된 것이라 로그아웃합니다(무한 반복 방지). refresh token이 없는 PAT는 예전처럼 바로 로그아웃합니다.
+- 로그아웃할 때는 이유를 `meta.lastError.detail`에 함께 저장합니다(예: `refresh: bad_refresh_token`). 화면 문구는 "다시 로그인"으로 같습니다. 이 값은 다시 로그인하면 지워지므로, 로그인·갱신·회복·로그아웃을 시각과 함께 **`authLog`**에 따로 남깁니다(최근 20건, 로그아웃·재로그인에도 유지, 토큰 값은 남기지 않음). 예상치 못한 로그아웃이 생기면 이 기록으로 원인을 확인합니다.
 
 **로그인을 Options page에서 하는 이유**
 Device Flow는 사용자가 github.com에서 코드를 입력하는 동안 토큰 엔드포인트를 수 초 간격으로 계속 조회해야 합니다. Popup에서 시작하면 사용자가 GitHub 탭으로 이동하는 순간 Popup이 닫히고 조회가 끊깁니다(C8). background에서 돌리면 alarm 최소 주기(C2) 때문에 30초 간격이 되어 느립니다. 사용자가 탭을 오가도 살아 있는 **Options page**가 가장 적합합니다.
@@ -360,12 +361,13 @@ Device Flow는 사용자가 github.com에서 코드를 입력하는 동안 토�
 - 사용자가 "코드 복사 → GitHub에 입력 → 앱 설치"를 거쳐야 해서 일반 OAuth 버튼보다 단계가 많습니다. "코드 복사 & GitHub 열기" 버튼 하나로 묶어 부담을 줄였습니다.
 - 토큰은 `chrome.storage.local`에 평문으로 저장됩니다. 확장 프로그램 저장소는 다른 확장 프로그램이나 웹페이지에서 접근할 수 없지만, 로컬 디스크에 접근할 수 있는 공격자로부터는 보호되지 않습니다. 브라우저 확장 프로그램 환경에서 서버 없이 쓸 수 있는 실용적인 상한선으로 판단했습니다.
 
-- 갱신이 성공했는데 저장하기 전에 Service Worker가 종료되면 새 refresh token을 잃고, 다음 갱신이 `bad_refresh_token`으로 실패해 로그아웃됩니다. 매우 짧은 구간이라 드물다고 보고, 위 이유 기록으로 실제로 일어나는지 지켜봅니다.
+- 갱신이 성공했는데 저장하기 전에 Service Worker가 종료되거나, GitHub가 갱신을 처리한 뒤 응답이 오는 도중 연결이 끊기면 새 refresh token을 잃고, 다음 갱신이 `bad_refresh_token`으로 실패해 로그아웃됩니다. 잠자기에서 깨어나는 순간처럼 연결이 불안정할 때 생길 수 있어, `authLog`로 실제로 일어나는지 지켜봅니다.
 
 **재검토 조건**: GitHub가 웹 플로우에서 public client(PKCE만으로 교환)를 지원하면, 한 번 클릭으로 끝나는 `launchWebAuthFlow`로 전환을 검토합니다.
 
 **변경 내력**
 - 2026-10-07: 처음에는 갱신 실패를 이유와 상관없이 세션 만료로 보고 로그아웃했습니다. 실사용 중 로그인이 풀린 일로 일시적인 실패를 구분하도록 바꿨고, Wi-Fi를 끈 채 토큰을 만료 처리해 로그인이 유지되고 네트워크가 돌아오면 갱신되는 것을 실제 설치본에서 확인했습니다.
+- 2026-10-16: 실사용 중 하루 한 번꼴로 로그아웃되는데, 다시 로그인하면 `lastError`가 지워져 원인을 확인할 수 없었습니다. `authLog`를 추가하고, 401에서 바로 로그아웃하던 것을 갱신을 한 번 시도한 뒤로 바꿨습니다. 같은 날 만료 시각을 지금으로 바꿔 강제로 갱신해 본 결과 정상 갱신을 확인해, 평소 갱신 경로는 원인에서 제외했습니다.
 
 ---
 
@@ -440,8 +442,9 @@ background, Popup, Options page, content script는 서로 다른 JS 컨텍스트
 | `runs`, `commits`, `repoInfo` | **background만** | 화면, content script |
 | `histories`, `httpCache` | **background만** | background |
 | `meta` | background, Popup 연결 시 실패 카운터 초기화 | 모두 |
+| `authLog` | background(갱신·회복·로그아웃), Options(로그인) | 없음 (문제 확인용) |
 
-로그아웃은 `auth`만 지웁니다. background가 `onChanged`로 이를 알아채고 다음 폴링에서 그 계정으로 알게 된 것을 모두 정리합니다: run, 커밋 상태, 응답 캐시, 워크플로 이력, 저장소 정보, 저장소별 오류. 비공개 저장소 이름이 이력과 저장소 정보의 키에도 남기 때문입니다. 설정은 남깁니다. 정리 코드가 한 곳에만 있어 빠뜨릴 일이 없습니다.
+로그아웃은 `auth`만 지웁니다. background가 `onChanged`로 이를 알아채고 다음 폴링에서 그 계정으로 알게 된 것을 모두 정리합니다: run, 커밋 상태, 응답 캐시, 워크플로 이력, 저장소 정보, 저장소별 오류. 비공개 저장소 이름이 이력과 저장소 정보의 키에도 남기 때문입니다. 설정과 `authLog`는 남깁니다. 정리 코드가 한 곳에만 있어 빠뜨릴 일이 없습니다.
 
 **근거**
 - C1 때문에 메모리에 둔 상태는 언제든 사라질 수 있으므로 A는 탈락입니다.
@@ -977,6 +980,7 @@ UI를 한국어와 영어로 제공합니다. 문구는 Popup, 설정 화면, Gi
 | `repoInfo` | `Record<"owner/repo", RepoInfo>` | 보고 있는 저장소의 기본 브랜치 (하루 TTL, 로그아웃 시 비움) |
 | `commits` | `Record<"owner/repo@sha", CommitInfo>` | 지금 열린 탭이 보여주는 커밋의 Actions 합산 상태 (`pending`/`success`/`failure`/없음). 탭이 닫히면 다음 폴링에서 빠짐. 로그아웃·폴링 대상 없음일 때 비움, 60초보다 오래된 값은 화면에서 쓰지 않음 (D16) |
 | `meta` | `Meta` | `lastPolledAt`, `lastError`, `repoErrors`, `rateLimit`, `unseenFailures`. 오류는 문장이 아닌 코드(`ErrorInfo`)로 저장 (D17) |
+| `authLog` | `AuthEvent[]` | 로그인·갱신·갱신 실패(일시적)·401 회복·로그아웃의 시각과 이유 코드. 최근 20건, 로그아웃해도 유지, 토큰 값 없음 (D5) |
 
 **첫 공개 전 정리**: 개발 중 저장 형식이 바뀔 때마다 넣었던 이전 형식 호환 처리(문자열로 저장된 오류, job 시각이 없는 run, `history`가 없는 이력 항목, `prNumbers`가 없는 run)를 첫 공개 전에 모두 지웠습니다. 공개 버전에는 이전 버전 사용자가 없기 때문입니다. 개발용 설치본은 다시 설치하면 됩니다.
 
@@ -1050,7 +1054,7 @@ sequenceDiagram
 
 ## 8. 테스트 전략
 
-판단 로직은 Chrome API 없는 순수 함수로 `lib/`에 두고 Vitest로 테스트합니다(129개). Chrome·GitHub에 기대는 부분은 실제 설치본과 가짜 Chrome 환경으로 확인합니다.
+판단 로직은 Chrome API 없는 순수 함수로 `lib/`에 두고 Vitest로 테스트합니다(134개). Chrome·GitHub에 기대는 부분은 실제 설치본과 가짜 Chrome 환경으로 확인합니다.
 
 **단위 테스트**
 
@@ -1064,7 +1068,7 @@ sequenceDiagram
 | `lib/i18n.ts` | 8 | 두 언어 파일의 키·자리표시자 일치, 영어 대체, 문장 분할(한국어 `chrome.i18n` 포함) |
 | `lib/slim.ts` | 5 | 응답에서 쓰는 필드만 남기기, 캐시 개수·크기 상한 |
 | `lib/errors.ts`, `lib/notifications.ts` | 4, 4 | 오류 분류와 404 뒤 조회 쉬기, 알림 ID 생성·해석 |
-| `lib/format.ts`, `lib/auth.ts`, `lib/url.ts` | 3, 2, 2 | "~전" 글자가 바뀌는 시각, 토큰 갱신 실패 구분, GitHub 페이지 URL 검사 |
+| `lib/format.ts`, `lib/auth.ts`, `lib/url.ts` | 3, 7, 2 | "~전" 글자가 바뀌는 시각, 토큰 갱신 실패 구분·401 회복 조건·인증 기록, GitHub 페이지 URL 검사 |
 
 **수동 확인**
 
@@ -1185,3 +1189,4 @@ sequenceDiagram
 | 2026-10-09 | v1.0.0 Chrome Web Store 공개, 10장에서 Web Store 제출 항목 제거 |
 | 2026-10-14 | 나란히 도는 job별 진행 바와 matrix 실행 중 바 아래 글자 정리(D8) |
 | 2026-10-16 | v1.1.0 Chrome Web Store 공개 (2026-10-15) |
+| 2026-10-16 | 401에서 토큰 갱신을 한 번 시도한 뒤 로그아웃, 인증 기록 `authLog` 추가(D5·D7·5장) |

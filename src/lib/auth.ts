@@ -1,4 +1,4 @@
-import type { AuthState } from './types'
+import type { AuthEvent, AuthState } from './types'
 import { githubUrl } from './url'
 
 // GitHub App OAuth device flow. No client secret is needed: GitHub allows both the
@@ -124,6 +124,33 @@ export async function refreshAuth(auth: AuthState): Promise<AuthState> {
 export function isTransientRefreshError(e: unknown): boolean {
   if (e instanceof TypeError) return true
   return e instanceof AuthError && e.code === 'http_error' && (e.status === undefined || e.status >= 500 || e.status === 429)
+}
+
+/** entries kept in the auth log, newest last */
+export const AUTH_LOG_MAX = 20
+
+export function appendAuthEvent(log: AuthEvent[], event: AuthEvent, max = AUTH_LOG_MAX): AuthEvent[] {
+  return [...log, event].slice(-max)
+}
+
+/** A 401 again within this long after a recovery means the new token is refused too: give up. */
+export const RECOVERY_COOLDOWN_MS = 5 * 60_000
+
+/**
+ * Whether a 401 from the API is worth a refresh before signing out. GitHub can refuse a token
+ * that has not reached its expiry (revoked, or replaced by a newer one), and a fresh one from
+ * the refresh token may still be good. Not for tokens without a refresh token (PAT), and not
+ * twice in a row.
+ */
+export function canRecover(auth: AuthState, lastRecoveredAt: number | null, now: number): boolean {
+  if (auth.kind !== 'app' || !auth.refreshToken) return false
+  return lastRecoveredAt === null || now - lastRecoveredAt > RECOVERY_COOLDOWN_MS
+}
+
+/** Short reason for the auth log: GitHub's error code, or the error's message. */
+export function authErrorDetail(e: unknown): string {
+  if (e instanceof AuthError) return e.status ? `${e.code} (${e.status})` : e.code
+  return e instanceof Error ? `${e.name}: ${e.message}` : String(e)
 }
 
 /** true when the token expires within the next 5 minutes */

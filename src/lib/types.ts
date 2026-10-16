@@ -216,6 +216,16 @@ export interface RateLimit {
   resetAt: number
 }
 
+/**
+ * What happened to the sign-in, kept across sign-outs so an unexpected one can be explained
+ * later. Times and error codes only, never tokens.
+ */
+export interface AuthEvent {
+  at: number
+  event: 'signed_in' | 'refreshed' | 'refresh_failed' | 'recovered' | 'signed_out'
+  detail?: string
+}
+
 export interface Meta {
   lastPolledAt: number | null
   lastError: ErrorInfo | null
