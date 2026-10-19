@@ -3,7 +3,7 @@
 | 항목 | 내용 |
 |---|---|
 | 상태 | v1.1.0 [Chrome Web Store](https://chromewebstore.google.com/detail/live-actions-for-github/fnfmpglkebgbokpmlcbadploemgilpgl) 공개 (2026-10-15, 첫 공개 v1.0.0 2026-10-09) |
-| 최종 수정 | 2026-10-16 |
+| 최종 수정 | 2026-10-19 |
 | 대상 독자 | 이 프로젝트를 유지보수하거나 설계를 검토하는 개발자 |
 
 이 문서는 **무엇을 만들었는지**보다 **왜 이렇게 만들었는지**를 기록합니다. 결정마다 검토한 선택지, 고른 이유, 감수한 단점, 그리고 결정을 다시 볼 조건을 적습니다. 코드와 이 문서가 다르면 코드가 맞는 것이므로, 코드를 바꿀 때 이 문서도 함께 고칩니다(→ [유지 규칙](#11-문서-유지-규칙)).
@@ -620,6 +620,8 @@ GitHub는 run의 진행률이나 남은 시간을 주지 않습니다. job·step
 
 **`scripting`을 쓰는 이유**: Chrome은 content script를 설치 이후에 불러온 페이지에만 넣고, 업데이트하면 열린 탭의 이전 content script는 확장 프로그램과의 연결이 끊겨 스스로 멈춥니다(`alive()`). 그대로 두면 Web Store 사용자는 자동 업데이트 때마다 열린 GitHub 탭이 멈춘 것처럼 보입니다. 그래서 `onInstalled`(설치·업데이트)에서 `https://github.com/*` 탭을 찾아 빌드된 manifest의 content script 파일(번들러가 해시를 붙이므로 `runtime.getManifest()`에서 읽음)을 `scripting.executeScript`로 실행합니다. 탭 검색의 URL 조건은 host permission으로 충분해 `tabs` 권한은 필요 없습니다. Chrome [권한 목록](https://developer.chrome.com/docs/extensions/reference/permissions-list)에서 `scripting`은 경고 문구가 없는 권한이고, [권한 경고 문서](https://developer.chrome.com/docs/extensions/develop/concepts/permission-warnings)에 따르면 업데이트 시 재승인을 받는 것은 경고가 있는 권한을 추가할 때뿐입니다. 넣을 수 있는 페이지도 host permission 범위로 제한됩니다. 이전 버전의 content script가 정리하면서 배너를 한 번 지울 수 있지만, 새 content script가 그 변경을 감지해 바로 다시 그립니다.
 
+**업데이트 바로 적용** (`onUpdateAvailable`): Chrome은 새 버전을 내려받아도 확장이 실행 중이면 서비스 워커가 쉴 때까지 설치를 미룹니다. 이 확장은 보는 동안 10초, 실행 중일 때 30초마다 깨어나 쉬는 틈이 드물어서, 브라우저를 다시 시작할 때까지 옛 버전에 머무는 사용자가 많았습니다. 그래서 `onUpdateAvailable`에서 `runtime.reload()`로 바로 적용합니다. 진행 중인 토큰 갱신과 폴링이 끝난 뒤에 다시 시작합니다. refresh token은 한 번만 쓸 수 있어서, GitHub가 갱신을 처리한 뒤 중간에 끊기면 로그인이 풀리기 때문입니다(D5). 다시 시작하면 위의 `onInstalled`가 열린 탭에 content script를 다시 실행합니다.
+
 **의도적으로 요청하지 않은 권한**
 
 | 권한 | 대신 쓴 방법 |
@@ -640,6 +642,7 @@ GitHub는 run의 진행률이나 남은 시간을 주지 않습니다. job·step
 **변경 내력**
 - 2026-10-06: MVP에서는 content script를 보류해 `https://github.com/*`는 로그인용이었습니다. content script를 채택하며 같은 범위에 등록했습니다.
 - 2026-10-07: 업데이트 후 열린 탭이 멈추는 문제로 `scripting`을 추가했습니다. "새로고침하세요" 안내만 띄우는 안은 권한이 그대로지만 새로고침이 여전히 사용자 몫이라 기각했습니다.
+- 2026-10-19: 공개 뒤 사용자 대부분이 며칠째 옛 버전에 머무는 것을 보고, 내려받은 업데이트를 바로 적용하도록 했습니다.
 
 ---
 
@@ -1190,3 +1193,4 @@ sequenceDiagram
 | 2026-10-14 | 나란히 도는 job별 진행 바와 matrix 실행 중 바 아래 글자 정리(D8) |
 | 2026-10-16 | v1.1.0 Chrome Web Store 공개 (2026-10-15) |
 | 2026-10-16 | 401에서 토큰 갱신을 한 번 시도한 뒤 로그아웃, 인증 기록 `authLog` 추가(D5·D7·5장) |
+| 2026-10-19 | 내려받은 업데이트를 바로 적용(`onUpdateAvailable`, D10) |

@@ -485,6 +485,18 @@ chrome.runtime.onInstalled.addListener(async ({ reason }) => {
 })
 
 /**
+ * A newer version is downloaded, but Chrome installs it only once this worker goes idle, which
+ * polling (every 10 s while someone watches) rarely allows: users stayed on old versions until
+ * they restarted the browser. Apply it now, though not in the middle of a token refresh:
+ * refresh tokens are single-use, and a refresh cut off after GitHub answered loses the session.
+ * onInstalled then re-runs the content script in open GitHub tabs.
+ */
+chrome.runtime.onUpdateAvailable.addListener(async () => {
+  await Promise.allSettled([refreshing, inflight])
+  chrome.runtime.reload()
+})
+
+/**
  * Chrome runs content scripts only in pages loaded after the extension is installed, and an
  * update cuts off the copies in open tabs (they stop themselves, see alive() in
  * content/index.ts). Without this, GitHub tabs open at install or after an automatic update
