@@ -201,7 +201,7 @@ function wakeBy(at: number) {
 
 function renderBannerFor(ctx: Extract<PageContext, { kind: 'pr' | 'code' }>, now: number): boolean {
   const { runs, repoInfo, meta } = state!
-  const page = runsForPage(ctx, Object.values(runs), repoInfo[ctx.repo]?.defaultBranch ?? null)
+  const page = runsForPage(ctx, Object.values(runs), repoInfo[ctx.repo]?.defaultBranch ?? null, ctx.kind === 'code' ? sha : null)
   const blocked = isNotFound(meta.repoErrors[ctx.repo])
   const installUrl = blocked && APP_SLUG ? `https://github.com/apps/${APP_SLUG}/installations/new` : null
 
@@ -245,7 +245,7 @@ function renderBannerFor(ctx: Extract<PageContext, { kind: 'pr' | 'code' }>, now
 
   renderBanner(
     host.shadowRoot!,
-    { runs: page.primary, othersActive: page.othersActive, actionsUrl: `https://github.com/${ctx.repo}/actions`, installUrl },
+    { runs: page.primary, othersActive: page.othersActive, branch: page.branch, actionsUrl: `https://github.com/${ctx.repo}/actions`, installUrl },
     now,
   )
   for (const run of page.primary) {

@@ -71,12 +71,19 @@ export interface PageRuns {
   primary: TrackedRun[]
   /** active runs in the same repository that belong elsewhere (other branches) */
   othersActive: number
+  /** the branch a code page shows; runs from another ref (a tag on the same commit) get a label */
+  branch?: string | null
 }
 
+/**
+ * @param sha the commit a code page shows (its latest-commit box): runs on that commit belong
+ *   to the page whatever ref started them, such as a tag pushed on it
+ */
 export function runsForPage(
   ctx: PageContext,
   runs: TrackedRun[],
   defaultBranch: string | null,
+  sha: string | null = null,
 ): PageRuns {
   const inRepo = runs.filter((r) => r.repo === ctx.repo)
 
@@ -96,20 +103,23 @@ export function runsForPage(
   const branch = ctx.ref === null ? defaultBranch : matchBranch(ctx.ref, branches)
   // a longer path is a folder; an unknown branch could be either, so stay out of the way
   if (ctx.ref !== null && branch !== ctx.ref) return none
-  const primary = branch === null ? [] : inRepo.filter((r) => r.branch === branch)
+  const primary = branch === null ? [] : inRepo.filter((r) => r.branch === branch || (sha !== null && r.headSha === sha))
   const othersActive = inRepo.filter((r) => isActive(r.status) && !primary.includes(r)).length
-  return { primary: latestPerWorkflow(primary), othersActive }
+  // per ref too: a workflow that runs for both the push and the tag keeps one row each
+  return { primary: latestPerWorkflow(primary, true), othersActive, branch }
 }
 
 /**
  * Newest run per workflow: a PR or branch accumulates runs from earlier pushes, and an
- * old result next to a new one would only confuse.
+ * old result next to a new one would only confuse. `perRef` keeps one per workflow and ref,
+ * for pages that also show runs from other refs on the same commit.
  */
-export function latestPerWorkflow(runs: TrackedRun[]): TrackedRun[] {
-  const latest = new Map<number, TrackedRun>()
+export function latestPerWorkflow(runs: TrackedRun[], perRef = false): TrackedRun[] {
+  const latest = new Map<string, TrackedRun>()
   for (const r of runs) {
-    const cur = latest.get(r.workflowId)
-    if (!cur || Date.parse(r.startedAt) > Date.parse(cur.startedAt)) latest.set(r.workflowId, r)
+    const key = perRef ? `${r.workflowId}@${r.branch ?? ''}` : `${r.workflowId}`
+    const cur = latest.get(key)
+    if (!cur || Date.parse(r.startedAt) > Date.parse(cur.startedAt)) latest.set(key, r)
   }
   return sortRuns([...latest.values()])
 }

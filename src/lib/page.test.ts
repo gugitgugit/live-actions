@@ -81,6 +81,24 @@ describe('runsForPage', () => {
     expect(res.othersActive).toBe(1)
   })
 
+  it('shows runs on the same commit from another ref, such as a pushed tag', () => {
+    const onMain = run({ branch: 'main', headSha: 'c1' })
+    const tag = run({ branch: 'v1.2.0', headSha: 'c1', workflowId: 2 })
+    const elsewhere = run({ branch: 'feat', headSha: 'c2', workflowId: 3 })
+    const res = runsForPage({ kind: 'code', repo: 'o/r', ref: null, view: 'home' }, [onMain, tag, elsewhere], 'main', 'c1')
+    expect(res.primary).toEqual(expect.arrayContaining([onMain, tag]))
+    expect(res.primary).toHaveLength(2)
+    expect(res.othersActive).toBe(1)
+    expect(res.branch).toBe('main')
+  })
+
+  it('keeps one row per ref when the same workflow runs for the push and the tag', () => {
+    const push = run({ branch: 'main', headSha: 'c1', startedAt: '2026-01-01T00:00:00Z' })
+    const tag = run({ branch: 'v1.2.0', headSha: 'c1', startedAt: '2026-01-01T00:00:05Z' })
+    const res = runsForPage({ kind: 'code', repo: 'o/r', ref: null, view: 'home' }, [push, tag], 'main', 'c1')
+    expect(res.primary).toHaveLength(2)
+  })
+
   it("shows a branch's home, including branch names with slashes", () => {
     const r = run({ branch: 'feat/x' })
     const res = runsForPage({ kind: 'code', repo: 'o/r', ref: 'feat/x', view: 'tree' }, [r], 'main')
