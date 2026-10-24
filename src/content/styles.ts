@@ -93,6 +93,8 @@ a { color: inherit; text-decoration: none; }
 .run:hover { background: var(--ap-subtle); }
 .top { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .workflow { font-weight: 600; white-space: nowrap; }
+.ref { flex: 0 1 auto; max-width: 30%; padding: 0 6px; border: 1px solid var(--ap-border); border-radius: 999px; color: var(--ap-muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ref[hidden] { display: none; }
 .title {
   color: var(--ap-muted);
   min-width: 0;

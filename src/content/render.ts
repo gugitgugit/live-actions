@@ -91,6 +91,8 @@ function createBar(label: string): HTMLElement {
 export interface BannerModel {
   runs: TrackedRun[]
   othersActive: number
+  /** the branch the page shows (code pages): rows from another ref get its name as a label */
+  branch?: string | null
   actionsUrl: string
   /** shown when there is nothing else to show and the repository is not accessible */
   installUrl: string | null
@@ -118,7 +120,7 @@ export function renderBanner(root: ShadowRoot, model: BannerModel, now: number) 
     keep.add(key)
     let row = list.querySelector<HTMLLIElement>(`li[data-key="${key}"]`)
     if (!row) row = createBannerRow(key)
-    updateBannerRow(row, run, now)
+    updateBannerRow(row, run, now, model.branch)
     list.append(row) // keeps order
   }
   for (const row of [...list.children] as HTMLElement[]) {
@@ -149,7 +151,7 @@ function createBannerRow(key: string): HTMLLIElement {
   link.target = '_blank'
   link.rel = 'noreferrer'
   const top = el('div', 'top')
-  top.append(el('span', 'icon'), el('span', 'workflow'), el('span', 'title'), el('span', 'meta'))
+  top.append(el('span', 'icon'), el('span', 'workflow'), el('span', 'ref'), el('span', 'title'), el('span', 'meta'))
   link.append(top, createBar(t('workflowProgressLabel')))
   row.append(link, el('ul', 'jobs'))
   return row
@@ -158,11 +160,17 @@ function createBannerRow(key: string): HTMLLIElement {
 /** At most this many jobs running side by side get their own bar; the rest are counted. */
 const MAX_JOB_BARS = 3
 
-function updateBannerRow(row: HTMLLIElement, run: TrackedRun, now: number) {
+function updateBannerRow(row: HTMLLIElement, run: TrackedRun, now: number, pageBranch: string | null | undefined) {
   const link = row.querySelector('a') as HTMLAnchorElement
   link.href = run.htmlUrl
   setIcon(row.querySelector('.icon') as HTMLElement, run)
   setText(row.querySelector('.workflow')!, run.workflowName)
+  // a run on the same commit from another ref, such as a pushed tag: say which
+  const ref = row.querySelector('.ref') as HTMLElement
+  const otherRef = pageBranch !== undefined && run.branch && run.branch !== pageBranch ? run.branch : null
+  ref.hidden = otherRef === null
+  setText(ref, otherRef ?? '')
+  if (otherRef) ref.setAttribute('title', otherRef)
   setText(row.querySelector('.title')!, run.title)
   row.querySelector('.title')!.setAttribute('title', run.title)
   const bar = row.querySelector('.bar') as HTMLElement
