@@ -38,9 +38,29 @@ async function logAuth(event: AuthEvent['event'], detail?: string) {
   await updateItem('authLog', (log) => appendAuthEvent(log, { at: Date.now(), event, ...(detail ? { detail } : {}) }))
 }
 
+/**
+ * Whether GitHub answers right now. A refresh that GitHub processes but whose answer is cut
+ * off loses the session: the old refresh token is spent, the new one never arrives, and the
+ * next attempt is refused (GitHub replies `incorrect_client_credentials` to a reused refresh
+ * token). Connections drop most around waking from sleep, which is also when an expired token
+ * gets refreshed, so the refresh is sent only after a small request has gone through.
+ */
+async function githubReachable(): Promise<boolean> {
+  try {
+    await fetch('https://github.com/robots.txt', { method: 'HEAD', cache: 'no-store', signal: AbortSignal.timeout(5000) })
+    return true
+  } catch {
+    return false
+  }
+}
+
 /** Refresh tokens are single-use: every caller shares one in-flight refresh. */
 function refreshOnce(auth: AuthState): Promise<AuthState> {
-  refreshing ??= refreshAuth(auth)
+  refreshing ??= (async () => {
+    // a TypeError, like fetch's own when offline: transient, so the session is kept
+    if (!(await githubReachable())) throw new TypeError('GitHub not reachable, refresh postponed')
+    return refreshAuth(auth)
+  })()
     .then(
       async (next) => {
         await setItem('auth', next)
