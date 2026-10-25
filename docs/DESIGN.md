@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 상태 | v1.1.2 [Chrome Web Store](https://chromewebstore.google.com/detail/live-actions-for-github/fnfmpglkebgbokpmlcbadploemgilpgl) 공개 (2026-10-20, 첫 공개 v1.0.0 2026-10-09) |
+| 상태 | v1.2.0 [Chrome Web Store](https://chromewebstore.google.com/detail/live-actions-for-github/fnfmpglkebgbokpmlcbadploemgilpgl) 공개 (2026-10-24, 첫 공개 v1.0.0 2026-10-09) |
 | 최종 수정 | 2026-10-25 |
 | 대상 독자 | 이 프로젝트를 유지보수하거나 설계를 검토하는 개발자 |
 
