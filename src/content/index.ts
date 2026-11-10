@@ -25,6 +25,15 @@ const LATEST_COMMIT = '[data-testid="latest-commit"]'
 const MERGE_BOX = '[data-testid="mergebox-partial"]'
 /** the bordered box inside it; the banner matches its width, like the comment boxes above and below */
 const MERGE_BOX_BORDER = '[data-testid="mergebox-border-container"]'
+/**
+ * The newer pull request "Overview" page (GitHub preview, Nov 2026) has no merge box: merge
+ * readiness is a compact section at the top of the main column, under a "Recommended action"
+ * section, with one `mini-status` tile each for checks, comments and approvals. Which page a
+ * user sees is their own GitHub setting, so both are looked for on every pull request.
+ */
+const OVERVIEW_RECOMMENDED = 'section[aria-label="Recommended action"]'
+const OVERVIEW_MERGE_STATUS = 'section[aria-label="Merge status"]'
+const OVERVIEW_TILE = '[data-testid="mini-status"]'
 /** commit links in a pull request's timeline */
 const COMMIT_PATH = /\/(?:pull\/\d+\/commits|commit)\/([0-9a-f]{40})/
 
@@ -32,7 +41,7 @@ const COMMIT_PATH = /\/(?:pull\/\d+\/commits|commit)\/([0-9a-f]{40})/
 interface Slot {
   parent: Element
   before: Element
-  kind: 'toolbar' | 'mergebox'
+  kind: 'toolbar' | 'mergebox' | 'overview'
   /** element whose left and right edges the banner lines up with */
   align?: Element
 }
@@ -101,9 +110,10 @@ function syncPort() {
 
 /**
  * A cheap summary of the parts of a pull request page that GitHub updates live when CI moves:
- * the newest commit in the timeline (a push) and the merge box headings (checks appearing or
- * changing state). Only read, never written; our own banner lives in a shadow root and is
- * not part of it.
+ * the newest commit in the timeline (a push) and the checks summary (checks appearing or
+ * changing state): the merge box headings on the classic page, the status tiles on the
+ * Overview page. Only read, never written; our own banner lives in a shadow root and is not
+ * part of it.
  */
 function prFingerprint(): string {
   let lastCommit = ''
@@ -113,7 +123,8 @@ function prFingerprint(): string {
   }
   const box = document.querySelector(MERGE_BOX_BORDER)
   const headings = box ? [...box.querySelectorAll('h3, h4')].map((h) => h.textContent?.trim()).join('|') : ''
-  return `${lastCommit}#${headings}`
+  const tiles = [...document.querySelectorAll(`${OVERVIEW_MERGE_STATUS} ${OVERVIEW_TILE}`)].map((t) => t.textContent?.trim()).join('|')
+  return `${lastCommit}#${headings}#${tiles}`
 }
 
 // ---------- rendering ----------
@@ -214,13 +225,15 @@ function renderBannerFor(ctx: Extract<PageContext, { kind: 'pr' | 'code' }>, now
   if (!host) host = createShadowHost(BANNER_ID)
   // Code pages: the banner only exists on the repository home and a branch's home (see
   // runsForPage), which share the toolbar layout; the vertical check in toolbarSlot guards
-  // against the side-panel layout of folder pages. Pull requests: only the Conversation tab
-  // has a merge box; other tabs keep the top spot.
-  const slot = ctx.kind === 'pr' ? mergeBoxSlot() : toolbarSlot()
+  // against the side-panel layout of folder pages. Pull requests: above the merge box on the
+  // classic Conversation tab, at the top of the main column on the Overview page; other tabs
+  // keep the top spot.
+  const slot = ctx.kind === 'pr' ? (mergeBoxSlot() ?? overviewSlot()) : toolbarSlot()
   const anchor = document.querySelector(ANCHOR)
   // prefixed: GitHub's own utility classes include `.inline { display: inline }`
   host.classList.toggle('ap-inline', !!slot)
   host.classList.toggle('ap-mergebox', slot?.kind === 'mergebox')
+  host.classList.toggle('ap-overview', slot?.kind === 'overview')
   host.classList.toggle('ap-floating', !slot && !anchor)
   watchAlign(slot?.align ?? null)
   // Match the measured edges rather than copying GitHub's margin classes: the merge box is
@@ -286,6 +299,17 @@ function mergeBoxSlot(): Slot | null {
   const box = document.querySelector(MERGE_BOX)
   if (!box?.parentElement || !reactSettled(box)) return null
   return { parent: box.parentElement, before: box, kind: 'mergebox', align: box.querySelector(MERGE_BOX_BORDER) ?? box }
+}
+
+/**
+ * The Overview page: in front of the block that holds "Recommended action" and the merge
+ * status, at the top of the main column. A merged or closed pull request has only the former.
+ */
+function overviewSlot(): Slot | null {
+  const recommended = document.querySelector(OVERVIEW_RECOMMENDED)
+  const block = recommended?.parentElement ?? document.querySelector(OVERVIEW_MERGE_STATUS)?.parentElement?.parentElement
+  if (!block?.parentElement || !reactSettled(block)) return null
+  return { parent: block.parentElement, before: block, kind: 'overview', align: block }
 }
 
 /**

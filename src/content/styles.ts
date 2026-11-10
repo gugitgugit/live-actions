@@ -130,6 +130,8 @@ a { color: inherit; text-decoration: none; }
 :host(.ap-inline) .banner { max-width: none; margin: 0 0 16px; padding: 0; }
 /* pull requests: above the merge box, which brings its own top margin */
 :host(.ap-inline.ap-mergebox) .banner { margin: 16px 0 0; }
+/* the Overview page's column already spaces its blocks apart */
+:host(.ap-inline.ap-overview) .banner { margin: 0; }
 
 /* floating fallback when GitHub's layout changed and the anchor is missing */
 :host(.ap-floating) {
