@@ -6,7 +6,7 @@
     "message": "Live Actions"
   },
   "extDescription": {
-    "message": "GitHub Actions 워크플로 진행 상황을 한눈에 — GitHub 화면 안 실시간 진행 바, 배지, 완료 알림."
+    "message": "GitHub 레포지토리 화면에서 Actions 결과를 새로고침 없이 — 실시간 진행 바, 병렬 job별 진행, 배지와 완료 알림."
   },
   "durationHours": {
     "message": "$H$시간 $M$분",
