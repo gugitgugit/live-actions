@@ -6,7 +6,7 @@
     "message": "Live Actions"
   },
   "extDescription": {
-    "message": "Watch GitHub Actions workflow progress at a glance — live progress bars inside GitHub, a badge and completion notifications."
+    "message": "See GitHub Actions results without refreshing — live progress bars inside GitHub, one per parallel job, a badge and notifications."
   },
   "durationHours": {
     "message": "$H$h $M$m",

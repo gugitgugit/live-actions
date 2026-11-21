@@ -8,10 +8,12 @@ See GitHub Actions progress without refreshing. Live Actions is a Chrome extensi
 
 ## Features
 
-- **Progress bars inside GitHub** – on the repository page, branches, pull requests and the Actions tab, with the current job and step and the estimated time left. No refresh needed.
-- **Status icons that keep up** – the ✓ / ✗ / ● next to the latest commit changes as soon as its workflows finish.
+- **Status icons that keep up** – the ✓ / ✗ / ● next to the latest commit changes the moment its workflows finish. GitHub itself only updates it on reload.
+- **Progress bars inside GitHub** – on the repository page, branches and pull requests (classic and the new Overview page), with the current job and step and the estimated time left. No refresh needed.
+- **One bar per parallel job** – jobs running side by side, such as a test matrix, each get their own bar.
+- **Tag runs too** – a release or deploy started by pushing a tag on the latest commit shows up on the repository page, labeled with the tag.
 - **Toolbar badge and popup** – how many runs are in progress, and a red `!` for failures you have not seen yet.
-- **Desktop notifications** – when a run succeeds or fails. Click to open the run.
+- **Desktop notifications** – titled with the workflow name (`Deploy passed`, `❌ CI failed`). Click to open the run.
 - **Accurate time left** – estimated per job and step from recent successful runs, not counting time spent waiting for a runner.
 - English and Korean, following your browser language.
 
